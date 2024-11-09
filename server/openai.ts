@@ -47,7 +47,7 @@ Return the results in a structured format, separating raw text from categorized 
       : defaultPrompt;
 
     const visionResponse = await openai.chat.completions.create({
-      model: "gpt-4-vision-preview",
+      model: "gpt-4-vision-0125",
       messages: [
         {
           role: "user",
