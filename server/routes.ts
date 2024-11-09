@@ -9,56 +9,61 @@ import { eq } from "drizzle-orm";
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
+    fileSize: 5 * 1024 * 1024, // 5MB per file
   },
 });
 
 export function registerRoutes(app: Express) {
   setupAuth(app);
 
-  // Extract text from image with pattern recognition
-  app.post("/api/extract", upload.single("image"), async (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ message: "No image file provided" });
+  // Extract text from multiple images with pattern recognition
+  app.post("/api/extract", upload.array("images", 10), async (req, res) => {
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+      return res.status(400).json({ message: "No image files provided" });
     }
 
     try {
-      const base64Image = req.file.buffer.toString("base64");
       const requirements = req.body.requirements;
-      const extractedData = await analyzeImage(base64Image, requirements);
+      const results = [];
+      
+      // Process images sequentially to avoid rate limiting
+      for (const file of req.files) {
+        const base64Image = file.buffer.toString("base64");
+        const extractedData = await analyzeImage(base64Image, requirements);
+        
+        let extraction = null;
+        if (req.user) {
+          // Save extraction if user is authenticated
+          const [saved] = await db
+            .insert(extractions)
+            .values({
+              user_id: req.user.id,
+              image_url: "", // Store image URL if needed
+              extracted_text: extractedData.text,
+              metadata: {
+                filename: file.originalname,
+                requirements: requirements,
+                patterns: extractedData.patterns,
+              },
+            })
+            .returning();
+          extraction = saved;
+        }
 
-      if (req.user) {
-        // Save extraction if user is authenticated
-        const [extraction] = await db
-          .insert(extractions)
-          .values({
-            user_id: req.user.id,
-            image_url: "", // Store image URL if needed
-            extracted_text: extractedData.text,
-            metadata: {
-              filename: req.file.originalname,
-              requirements: requirements,
-              patterns: extractedData.patterns,
-            },
-          })
-          .returning();
-
-        return res.json({ 
-          text: extractedData.text, 
+        results.push({
+          text: extractedData.text,
           patterns: extractedData.patterns,
-          extraction 
+          extraction,
+          filename: file.originalname,
         });
       }
 
-      return res.json({ 
-        text: extractedData.text, 
-        patterns: extractedData.patterns 
-      });
+      return res.json({ results });
     } catch (error) {
       console.error("Error extracting text:", error);
       return res
         .status(500)
-        .json({ message: "Failed to extract text from image" });
+        .json({ message: "Failed to extract text from images" });
     }
   });
 

@@ -17,20 +17,33 @@ interface Patterns {
   identifiers?: string[];
 }
 
+interface ExtractionResult {
+  text: string;
+  patterns: Patterns;
+  filename: string;
+  extraction?: any;
+}
+
 export default function Home() {
   const { user, logout } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [extractedText, setExtractedText] = useState("");
-  const [patterns, setPatterns] = useState<Patterns | undefined>();
+  const [results, setResults] = useState<ExtractionResult[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  const handleImageUpload = async (file: File, requirements?: string) => {
+  const handleImageUpload = async (files: File[], requirements?: string) => {
     setIsLoading(true);
+    setProgress(0);
+    setResults([]);
+    
     try {
       const formData = new FormData();
-      formData.append("image", file);
+      files.forEach((file) => {
+        formData.append("images", file);
+      });
       if (requirements) {
         formData.append("requirements", requirements);
       }
@@ -43,28 +56,32 @@ export default function Home() {
       if (!response.ok) throw new Error("Failed to extract text");
 
       const data = await response.json();
-      setExtractedText(data.text);
-      setPatterns(data.patterns);
+      setResults(data.results);
+      setSelectedIndex(0);
 
-      // Automatically generate tags from recognized patterns
-      const newTags = new Set<string>();
-      if (data.patterns) {
-        if (data.patterns.dates?.length) newTags.add("date");
-        if (data.patterns.amounts?.length) newTags.add("amount");
-        if (data.patterns.emails?.length) newTags.add("email");
-        if (data.patterns.phoneNumbers?.length) newTags.add("phone");
-        if (data.patterns.addresses?.length) newTags.add("address");
-        if (data.patterns.identifiers?.length) newTags.add("reference");
+      // Generate tags from the first result's patterns
+      if (data.results.length > 0) {
+        const firstResult = data.results[0];
+        const newTags = new Set<string>();
+        if (firstResult.patterns) {
+          if (firstResult.patterns.dates?.length) newTags.add("date");
+          if (firstResult.patterns.amounts?.length) newTags.add("amount");
+          if (firstResult.patterns.emails?.length) newTags.add("email");
+          if (firstResult.patterns.phoneNumbers?.length) newTags.add("phone");
+          if (firstResult.patterns.addresses?.length) newTags.add("address");
+          if (firstResult.patterns.identifiers?.length) newTags.add("reference");
+        }
+        setTags(Array.from(newTags));
       }
-      setTags(Array.from(newTags));
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to extract text from image",
+        description: "Failed to extract text from images",
       });
     } finally {
       setIsLoading(false);
+      setProgress(100);
     }
   };
 
@@ -81,6 +98,8 @@ export default function Home() {
     return null;
   }
 
+  const currentResult = results[selectedIndex];
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -93,7 +112,25 @@ export default function Home() {
       
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-6">
-          <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
+          <ImageUpload 
+            onImageUpload={handleImageUpload} 
+            isLoading={isLoading}
+            progress={progress}
+          />
+          {results.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto p-2">
+              {results.map((result, index) => (
+                <Button
+                  key={index}
+                  variant={index === selectedIndex ? "default" : "outline"}
+                  onClick={() => setSelectedIndex(index)}
+                  className="whitespace-nowrap"
+                >
+                  {result.filename}
+                </Button>
+              ))}
+            </div>
+          )}
           <TagManager
             tags={tags}
             onAddTag={handleAddTag}
@@ -101,8 +138,8 @@ export default function Home() {
           />
         </div>
         <ExtractedText 
-          text={extractedText} 
-          patterns={patterns}
+          text={currentResult?.text || ""} 
+          patterns={currentResult?.patterns}
           isLoading={isLoading} 
         />
       </div>

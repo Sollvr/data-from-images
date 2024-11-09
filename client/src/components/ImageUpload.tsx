@@ -13,24 +13,31 @@ import {
 } from "@/components/ui/tooltip";
 
 interface ImageUploadProps {
-  onImageUpload: (file: File, requirements?: string) => Promise<void>;
+  onImageUpload: (files: File[], requirements?: string) => Promise<void>;
   isLoading: boolean;
+  progress?: number;
 }
 
-export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
-  const [preview, setPreview] = useState<string | null>(null);
+export function ImageUpload({ onImageUpload, isLoading, progress }: ImageUploadProps) {
+  const [previews, setPreviews] = useState<string[]>([]);
   const [requirements, setRequirements] = useState("");
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
-      const file = acceptedFiles[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setPreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-        await onImageUpload(file, requirements);
+      if (acceptedFiles.length > 0) {
+        const newPreviews = await Promise.all(
+          acceptedFiles.map((file) => {
+            return new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                resolve(reader.result as string);
+              };
+              reader.readAsDataURL(file);
+            });
+          })
+        );
+        setPreviews(newPreviews);
+        await onImageUpload(acceptedFiles, requirements);
       }
     },
     [onImageUpload, requirements]
@@ -41,7 +48,7 @@ export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
     accept: {
       "image/*": [".png", ".jpg", ".jpeg", ".gif"],
     },
-    maxFiles: 1,
+    multiple: true,
     disabled: isLoading,
   });
 
@@ -49,14 +56,14 @@ export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
     <Card className="p-6">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-lg font-semibold flex items-center gap-2">
-          Upload Image
+          Upload Images
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Info className="h-4 w-4 text-muted-foreground cursor-help" />
               </TooltipTrigger>
               <TooltipContent>
-                <p>Upload an image and specify what information you want to extract</p>
+                <p>Upload multiple images and specify what information you want to extract</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -65,7 +72,7 @@ export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
 
       <div className="mb-4">
         <Textarea
-          placeholder="Specify what information you want to extract from the image (e.g., 'Extract all dates and amounts from this receipt')"
+          placeholder="Specify what information you want to extract from the images (e.g., 'Extract all dates and amounts from these receipts')"
           value={requirements}
           onChange={(e) => setRequirements(e.target.value)}
           className="min-h-[80px]"
@@ -79,39 +86,49 @@ export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
         }`}
       >
         <input {...getInputProps()} />
-        {preview ? (
+        {previews.length > 0 ? (
           <div className="relative">
-            <img
-              src={preview}
-              alt="Preview"
-              className="max-h-64 mx-auto rounded-lg"
-            />
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {previews.map((preview, index) => (
+                <img
+                  key={index}
+                  src={preview}
+                  alt={`Preview ${index + 1}`}
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+              ))}
+            </div>
             <Button
               variant="secondary"
               className="mt-4"
               onClick={(e) => {
                 e.stopPropagation();
-                setPreview(null);
+                setPreviews([]);
               }}
             >
-              Choose Another Image
+              Choose Different Images
             </Button>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="flex justify-center">
               {isLoading ? (
-                <Progress value={30} className="w-1/2" />
+                <div className="w-full max-w-xs space-y-2">
+                  <Progress value={progress} className="w-full" />
+                  <p className="text-sm text-muted-foreground">
+                    Processing images... {progress}%
+                  </p>
+                </div>
               ) : (
                 <Upload className="h-12 w-12 text-muted-foreground" />
               )}
             </div>
             <div>
               <p className="text-lg font-medium">
-                Drop your image here or click to upload
+                Drop your images here or click to upload
               </p>
               <p className="text-sm text-muted-foreground">
-                Supports PNG, JPG, JPEG, GIF
+                Supports multiple files: PNG, JPG, JPEG, GIF
               </p>
             </div>
           </div>
