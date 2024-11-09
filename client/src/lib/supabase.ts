@@ -2,14 +2,27 @@ import { createClient } from '@supabase/supabase-js';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Extraction, Tag } from 'db/schema';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
+// Initialize Supabase client with error handling
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+// Verify environment variables
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase environment variables:', {
+    url: !supabaseUrl ? 'Missing SUPABASE_URL' : 'OK',
+    key: !supabaseKey ? 'Missing SUPABASE_ANON_KEY' : 'OK'
+  });
+  throw new Error('Missing required Supabase configuration');
+}
+
+console.log('Initializing Supabase client...');
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
   },
   realtime: {
     params: {
@@ -112,94 +125,106 @@ export async function signInWithEmail(
   email: string,
   password: string
 ) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  console.log('Attempting email sign in...');
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  if (error) {
+    if (error) {
+      console.error('Email sign in error:', error);
+      throw error;
+    }
+
+    console.log('Email sign in successful');
+    return data;
+  } catch (error) {
+    console.error('Unexpected error during email sign in:', error);
     throw error;
   }
-
-  return data;
 }
 
 export async function signUpWithEmail(
   email: string,
   password: string
 ) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+  console.log('Attempting email sign up...');
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
-  if (error) {
+    if (error) {
+      console.error('Email sign up error:', error);
+      throw error;
+    }
+
+    console.log('Email sign up successful');
+    return data;
+  } catch (error) {
+    console.error('Unexpected error during email sign up:', error);
     throw error;
   }
-
-  return data;
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  
-  if (error) {
+  console.log('Attempting sign out...');
+  try {
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      console.error('Sign out error:', error);
+      throw error;
+    }
+
+    console.log('Sign out successful');
+  } catch (error) {
+    console.error('Unexpected error during sign out:', error);
     throw error;
   }
 }
 
-// User session management
+// User session management with error handling
 export function onAuthStateChange(
   callback: (session: any | null) => void
 ) {
+  console.log('Setting up auth state change listener...');
   return supabase.auth.onAuthStateChange((event, session) => {
+    console.log('Auth state changed:', event);
     callback(session);
   });
 }
 
-// Data fetching utilities
-export async function fetchUserExtractions(userId: number) {
-  const { data, error } = await supabase
-    .from('extractions')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
-export async function fetchExtractionTags(extractionId: number) {
-  const { data, error } = await supabase
-    .from('tags')
-    .select('*')
-    .eq('extraction_id', extractionId)
-    .order('created_at', { ascending: true });
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
 // Helper function to check if user is authenticated
 export function isAuthenticated(): boolean {
-  return !!supabase.auth.getSession();
+  try {
+    const session = supabase.auth.getSession();
+    return !!session;
+  } catch (error) {
+    console.error('Error checking authentication status:', error);
+    return false;
+  }
 }
 
-// Helper function to get current user
+// Helper function to get current user with error handling
 export async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  
-  if (error) {
+  console.log('Fetching current user...');
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error) {
+      console.error('Error fetching current user:', error);
+      throw error;
+    }
+
+    console.log('Current user fetched successfully');
+    return user;
+  } catch (error) {
+    console.error('Unexpected error fetching current user:', error);
     throw error;
   }
-  
-  return user;
 }
 
 // Initialize Supabase storage bucket for screenshots

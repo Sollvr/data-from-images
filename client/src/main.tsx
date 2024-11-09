@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { Switch, Route } from "wouter";
 import "./index.css";
@@ -10,20 +10,54 @@ import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
 import Landing from "./pages/Landing";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { Loader2 } from "lucide-react";
 
 console.log("Application starting...");
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+function AppRoutes() {
+  return (
+    <Switch>
+      <Route path="/" component={Landing} />
+      <Route path="/app" component={Home} />
+      <Route path="/auth" component={Auth} />
+      <Route path="/auth/callback" component={AuthCallback} />
+      <Route>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold">404</h1>
+            <p className="text-muted-foreground">Page Not Found</p>
+          </div>
+        </div>
+      </Route>
+    </Switch>
+  );
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
-      <SWRConfig value={{ fetcher }}>
-        <Switch>
-          <Route path="/" component={Landing} />
-          <Route path="/app" component={Home} />
-          <Route path="/auth" component={Auth} />
-          <Route path="/auth/callback" component={AuthCallback} />
-          <Route>404 Page Not Found</Route>
-        </Switch>
+      <SWRConfig 
+        value={{ 
+          fetcher,
+          onError: (error) => {
+            console.error('SWR Global Error:', error);
+          }
+        }}
+      >
+        <Suspense fallback={<LoadingFallback />}>
+          <AppRoutes />
+        </Suspense>
         <Toaster />
       </SWRConfig>
     </ErrorBoundary>

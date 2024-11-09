@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser } from "@/hooks/use-user";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,20 +8,27 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, Lock, Google } from "lucide-react";
+import { Mail, Lock, Loader2 } from "lucide-react";
+import { FaGoogle } from "react-icons/fa";
 import { Separator } from "@/components/ui/separator";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const authSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
 
-export default function Auth() {
+function AuthContent() {
   const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const { login, register } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
+  useEffect(() => {
+    console.log('Auth component mounted');
+  }, []);
+
   const form = useForm({
     resolver: zodResolver(authSchema),
     defaultValues: {
@@ -31,6 +38,8 @@ export default function Auth() {
   });
 
   const onSubmit = async (data: z.infer<typeof authSchema>) => {
+    console.log('Attempting authentication...');
+    setIsLoading(true);
     try {
       const result = await (isLogin 
         ? login.email(data.email, data.password) 
@@ -38,8 +47,10 @@ export default function Auth() {
       );
       
       if (result.ok) {
+        console.log('Authentication successful, redirecting...');
         setLocation("/app");
       } else {
+        console.error('Authentication failed:', result.message);
         toast({
           variant: "destructive",
           title: "Error",
@@ -47,30 +58,41 @@ export default function Auth() {
         });
       }
     } catch (error) {
+      console.error('Unexpected error during authentication:', error);
       toast({
         variant: "destructive",
         title: "Error",
         description: "An unexpected error occurred",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    console.log('Attempting Google sign in...');
+    setIsLoading(true);
     try {
       const result = await login.google();
       if (!result.ok) {
+        console.error('Google sign in failed:', result.message);
         toast({
           variant: "destructive",
           title: "Error",
           description: result.message,
         });
+      } else {
+        console.log('Google sign in initiated...');
       }
     } catch (error) {
+      console.error('Unexpected error during Google sign in:', error);
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to sign in with Google",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -85,8 +107,13 @@ export default function Auth() {
           variant="outline" 
           className="w-full" 
           onClick={handleGoogleSignIn}
+          disabled={isLoading}
         >
-          <Google className="h-4 w-4 mr-2" />
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <FaGoogle className="h-4 w-4 mr-2" />
+          )}
           Continue with Google
         </Button>
 
@@ -110,6 +137,7 @@ export default function Auth() {
                 type="email"
                 {...form.register("email")}
                 className="pl-9"
+                disabled={isLoading}
               />
             </div>
             {form.formState.errors.email && (
@@ -127,6 +155,7 @@ export default function Auth() {
                 placeholder="Password"
                 {...form.register("password")}
                 className="pl-9"
+                disabled={isLoading}
               />
             </div>
             {form.formState.errors.password && (
@@ -136,7 +165,10 @@ export default function Auth() {
             )}
           </div>
 
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : null}
             {isLogin ? "Sign In" : "Sign Up"}
           </Button>
         </form>
@@ -146,6 +178,7 @@ export default function Auth() {
             variant="link"
             onClick={() => setIsLogin(!isLogin)}
             className="text-sm"
+            disabled={isLoading}
           >
             {isLogin
               ? "Don't have an account? Sign Up"
@@ -154,5 +187,26 @@ export default function Auth() {
         </div>
       </Card>
     </div>
+  );
+}
+
+export default function Auth() {
+  return (
+    <ErrorBoundary
+      fallback={
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <Card className="w-full max-w-md p-6">
+            <h2 className="text-2xl font-bold text-center text-destructive mb-4">
+              Authentication Error
+            </h2>
+            <p className="text-center text-muted-foreground">
+              There was a problem loading the authentication page. Please try refreshing the page.
+            </p>
+          </Card>
+        </div>
+      }
+    >
+      <AuthContent />
+    </ErrorBoundary>
   );
 }
