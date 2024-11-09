@@ -42,7 +42,7 @@ Return the results in a structured format separating the raw text from the ident
       : defaultPrompt;
 
     const visionResponse = await openai.chat.completions.create({
-      model: "gpt-4-vision-preview",
+      model: "gpt-4-vision-0125",
       messages: [
         {
           role: "user",
@@ -58,7 +58,7 @@ Return the results in a structured format separating the raw text from the ident
         },
       ],
       max_tokens: 1500,
-      temperature: 0.3, // Lower temperature for more focused pattern recognition
+      temperature: 0.3,
     });
 
     const content = visionResponse.choices[0].message.content || "";
