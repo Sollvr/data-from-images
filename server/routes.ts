@@ -5,6 +5,7 @@ import { db } from "db";
 import { extractions, tags } from "db/schema";
 import { analyzeImage } from "./openai";
 import { eq } from "drizzle-orm";
+import { Parser } from "json2csv";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -84,6 +85,59 @@ export function registerRoutes(app: Express) {
     } catch (error) {
       console.error("Error fetching extractions:", error);
       res.status(500).json({ message: "Failed to fetch extractions" });
+    }
+  });
+
+  // Export extractions to CSV
+  app.get("/api/export", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const userExtractions = await db
+        .select()
+        .from(extractions)
+        .where(eq(extractions.user_id, req.user.id))
+        .orderBy(extractions.created_at);
+
+      const flattenedData = userExtractions.map(extraction => ({
+        id: extraction.id,
+        extracted_text: extraction.extracted_text,
+        filename: extraction.metadata?.filename || '',
+        requirements: extraction.metadata?.requirements || '',
+        dates: extraction.metadata?.patterns?.dates?.join(', ') || '',
+        amounts: extraction.metadata?.patterns?.amounts?.join(', ') || '',
+        emails: extraction.metadata?.patterns?.emails?.join(', ') || '',
+        phone_numbers: extraction.metadata?.patterns?.phoneNumbers?.join(', ') || '',
+        addresses: extraction.metadata?.patterns?.addresses?.join(', ') || '',
+        identifiers: extraction.metadata?.patterns?.identifiers?.join(', ') || '',
+        created_at: extraction.created_at,
+      }));
+
+      const fields = [
+        'id',
+        'filename',
+        'requirements',
+        'extracted_text',
+        'dates',
+        'amounts',
+        'emails',
+        'phone_numbers',
+        'addresses',
+        'identifiers',
+        'created_at'
+      ];
+
+      const json2csvParser = new Parser({ fields });
+      const csv = json2csvParser.parse(flattenedData);
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=extractions.csv');
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting data:", error);
+      res.status(500).json({ message: "Failed to export data" });
     }
   });
 

@@ -4,7 +4,7 @@ import { ImageUpload } from "@/components/ImageUpload";
 import { ExtractedText } from "@/components/ExtractedText";
 import { TagManager } from "@/components/TagManager";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -93,6 +93,38 @@ export default function Home() {
     setTags(tags.filter((t) => t !== tag));
   };
 
+  const handleExport = async () => {
+    try {
+      const response = await fetch("/api/export", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!response.ok) throw new Error("Failed to export data");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "extractions.csv";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Success",
+        description: "Data exported successfully",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to export data",
+      });
+    }
+  };
+
   if (!user) {
     setLocation("/auth");
     return null;
@@ -104,10 +136,16 @@ export default function Home() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Screenshot Text Extractor</h1>
-        <Button variant="outline" onClick={() => logout()}>
-          <LogOut className="h-4 w-4 mr-2" />
-          Logout
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Button variant="outline" onClick={() => logout()}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
       </div>
       
       <div className="grid gap-6 md:grid-cols-2">
