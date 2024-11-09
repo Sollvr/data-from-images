@@ -6,14 +6,14 @@ import type { Extraction, Tag } from 'db/schema';
 console.log('Starting Supabase initialization...');
 
 // Check environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Verify environment variables
 if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase environment variables:', {
-    url: !supabaseUrl ? 'Missing SUPABASE_URL' : 'OK',
-    key: !supabaseKey ? 'Missing SUPABASE_ANON_KEY' : 'OK'
+  console.error('Missing Supabase configuration:', {
+    url: !supabaseUrl ? 'Missing VITE_SUPABASE_URL' : 'OK',
+    key: !supabaseKey ? 'Missing VITE_SUPABASE_ANON_KEY' : 'OK'
   });
   throw new Error('Missing required Supabase configuration');
 }
@@ -134,6 +134,19 @@ export async function uploadImage(
   return publicUrl;
 }
 
+// Initialize Supabase storage bucket for screenshots
+export async function initializeStorage() {
+  const { data: bucket, error } = await supabase.storage.getBucket('screenshots');
+  
+  if (!bucket && !error) {
+    await supabase.storage.createBucket('screenshots', {
+      public: true,
+      allowedMimeTypes: ['image/*'],
+      fileSizeLimit: 5242880, // 5MB
+    });
+  }
+}
+
 // User authentication utilities
 export async function signInWithEmail(
   email: string,
@@ -179,6 +192,29 @@ export async function signUpWithEmail(
     return data;
   } catch (error) {
     console.error('Unexpected error during email sign up:', error);
+    throw error;
+  }
+}
+
+export async function signInWithGoogle() {
+  console.log('Attempting Google sign in...');
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      console.error('Google sign in error:', error);
+      throw error;
+    }
+
+    console.log('Google sign in initiated');
+    return data;
+  } catch (error) {
+    console.error('Unexpected error during Google sign in:', error);
     throw error;
   }
 }
@@ -238,18 +274,5 @@ export async function getCurrentUser() {
   } catch (error) {
     console.error('Unexpected error fetching current user:', error);
     throw error;
-  }
-}
-
-// Initialize Supabase storage bucket for screenshots
-export async function initializeStorage() {
-  const { data: bucket, error } = await supabase.storage.getBucket('screenshots');
-  
-  if (!bucket && !error) {
-    await supabase.storage.createBucket('screenshots', {
-      public: true,
-      allowedMimeTypes: ['image/*'],
-      fileSizeLimit: 5242880, // 5MB
-    });
   }
 }
