@@ -15,9 +15,6 @@ interface Patterns {
   phoneNumbers?: string[];
   addresses?: string[];
   identifiers?: string[];
-  urls?: string[];
-  socialMediaHandles?: string[];
-  productCodes?: string[];
 }
 
 export default function Home() {
@@ -49,36 +46,15 @@ export default function Home() {
       setExtractedText(data.text);
       setPatterns(data.patterns);
 
-      // Enhanced automatic tag generation based on recognized patterns
+      // Automatically generate tags from recognized patterns
       const newTags = new Set<string>();
       if (data.patterns) {
-        // Document type detection based on content
-        if (data.text.toLowerCase().includes("invoice")) newTags.add("invoice");
-        if (data.text.toLowerCase().includes("receipt")) newTags.add("receipt");
-        if (data.text.toLowerCase().includes("contract")) newTags.add("contract");
-        if (data.text.toLowerCase().includes("business card")) newTags.add("contact");
-
-        // Pattern-based tags
         if (data.patterns.dates?.length) newTags.add("date");
-        if (data.patterns.amounts?.length) newTags.add("financial");
+        if (data.patterns.amounts?.length) newTags.add("amount");
         if (data.patterns.emails?.length) newTags.add("email");
         if (data.patterns.phoneNumbers?.length) newTags.add("phone");
         if (data.patterns.addresses?.length) newTags.add("address");
         if (data.patterns.identifiers?.length) newTags.add("reference");
-        if (data.patterns.urls?.length) newTags.add("website");
-        if (data.patterns.socialMediaHandles?.length) newTags.add("social");
-        if (data.patterns.productCodes?.length) newTags.add("product");
-
-        // Content type tags based on pattern combinations
-        if (data.patterns.amounts?.length && data.patterns.dates?.length) {
-          newTags.add("transaction");
-        }
-        if (data.patterns.emails?.length && data.patterns.phoneNumbers?.length) {
-          newTags.add("contact");
-        }
-        if (data.patterns.productCodes?.length && data.patterns.amounts?.length) {
-          newTags.add("order");
-        }
       }
       setTags(Array.from(newTags));
     } catch (error) {
