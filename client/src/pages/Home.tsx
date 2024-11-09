@@ -4,7 +4,7 @@ import { ImageUpload } from "@/components/ImageUpload";
 import { ExtractedText } from "@/components/ExtractedText";
 import { TagManager } from "@/components/TagManager";
 import { Button } from "@/components/ui/button";
-import { LogOut, Download } from "lucide-react";
+import { LogOut, Download, Home as HomeIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -38,7 +38,7 @@ export default function Home() {
     setIsLoading(true);
     setProgress(0);
     setResults([]);
-    
+
     try {
       const formData = new FormData();
       files.forEach((file) => {
@@ -59,7 +59,6 @@ export default function Home() {
       setResults(data.results);
       setSelectedIndex(0);
 
-      // Generate tags from the first result's patterns
       if (data.results.length > 0) {
         const firstResult = data.results[0];
         const newTags = new Set<string>();
@@ -133,53 +132,59 @@ export default function Home() {
   const currentResult = results[selectedIndex];
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Screenshot Text Extractor</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button variant="outline" onClick={() => logout()}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Extract Text</h1>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setLocation("/")}>
+              <HomeIcon className="h-4 w-4 mr-2" />
+              Home
+            </Button>
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+            <Button variant="outline" onClick={() => logout()}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </div>
         </div>
-      </div>
-      
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-6">
-          <ImageUpload 
-            onImageUpload={handleImageUpload} 
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-6">
+            <ImageUpload
+              onImageUpload={handleImageUpload}
+              isLoading={isLoading}
+              progress={progress}
+            />
+            {results.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto p-2">
+                {results.map((result, index) => (
+                  <Button
+                    key={index}
+                    variant={index === selectedIndex ? "default" : "outline"}
+                    onClick={() => setSelectedIndex(index)}
+                    className="whitespace-nowrap"
+                  >
+                    {result.filename}
+                  </Button>
+                ))}
+              </div>
+            )}
+            <TagManager
+              tags={tags}
+              onAddTag={handleAddTag}
+              onRemoveTag={handleRemoveTag}
+            />
+          </div>
+          <ExtractedText
+            text={currentResult?.text || ""}
+            patterns={currentResult?.patterns}
             isLoading={isLoading}
-            progress={progress}
-          />
-          {results.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto p-2">
-              {results.map((result, index) => (
-                <Button
-                  key={index}
-                  variant={index === selectedIndex ? "default" : "outline"}
-                  onClick={() => setSelectedIndex(index)}
-                  className="whitespace-nowrap"
-                >
-                  {result.filename}
-                </Button>
-              ))}
-            </div>
-          )}
-          <TagManager
-            tags={tags}
-            onAddTag={handleAddTag}
-            onRemoveTag={handleRemoveTag}
           />
         </div>
-        <ExtractedText 
-          text={currentResult?.text || ""} 
-          patterns={currentResult?.patterns}
-          isLoading={isLoading} 
-        />
       </div>
     </div>
   );
