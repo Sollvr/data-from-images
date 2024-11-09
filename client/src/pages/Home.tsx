@@ -16,11 +16,14 @@ export default function Home() {
   const [tags, setTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleImageUpload = async (file: File) => {
+  const handleImageUpload = async (file: File, requirements?: string) => {
     setIsLoading(true);
     try {
       const formData = new FormData();
       formData.append("image", file);
+      if (requirements) {
+        formData.append("requirements", requirements);
+      }
 
       const response = await fetch("/api/extract", {
         method: "POST",

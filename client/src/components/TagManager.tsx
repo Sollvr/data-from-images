@@ -2,8 +2,14 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TagManagerProps {
   tags: string[];
@@ -23,6 +29,19 @@ export function TagManager({ tags, onAddTag, onRemoveTag }: TagManagerProps) {
 
   return (
     <Card className="p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <h3 className="text-lg font-semibold">Tags</h3>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Add tags to categorize and organize your extractions</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
       <div className="space-y-4">
         <div className="flex gap-2">
           <Input

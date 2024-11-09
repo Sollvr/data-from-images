@@ -1,17 +1,25 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, Image as ImageIcon } from "lucide-react";
+import { Upload, Image as ImageIcon, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ImageUploadProps {
-  onImageUpload: (file: File) => Promise<void>;
+  onImageUpload: (file: File, requirements?: string) => Promise<void>;
   isLoading: boolean;
 }
 
 export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
   const [preview, setPreview] = useState<string | null>(null);
+  const [requirements, setRequirements] = useState("");
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
@@ -22,10 +30,10 @@ export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
           setPreview(reader.result as string);
         };
         reader.readAsDataURL(file);
-        await onImageUpload(file);
+        await onImageUpload(file, requirements);
       }
     },
-    [onImageUpload]
+    [onImageUpload, requirements]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -39,6 +47,31 @@ export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
 
   return (
     <Card className="p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          Upload Image
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Upload an image and specify what information you want to extract</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </h3>
+      </div>
+
+      <div className="mb-4">
+        <Textarea
+          placeholder="Specify what information you want to extract from the image (e.g., 'Extract all dates and amounts from this receipt')"
+          value={requirements}
+          onChange={(e) => setRequirements(e.target.value)}
+          className="min-h-[80px]"
+        />
+      </div>
+
       <div
         {...getRootProps()}
         className={`border-2 border-dashed rounded-lg p-8 text-center ${

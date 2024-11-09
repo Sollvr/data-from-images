@@ -24,7 +24,8 @@ export function registerRoutes(app: Express) {
 
     try {
       const base64Image = req.file.buffer.toString("base64");
-      const extractedText = await analyzeImage(base64Image);
+      const requirements = req.body.requirements;
+      const extractedText = await analyzeImage(base64Image, requirements);
 
       if (req.user) {
         // Save extraction if user is authenticated
@@ -34,7 +35,10 @@ export function registerRoutes(app: Express) {
             user_id: req.user.id,
             image_url: "", // Store image URL if needed
             extracted_text: extractedText,
-            metadata: { filename: req.file.originalname },
+            metadata: { 
+              filename: req.file.originalname,
+              requirements: requirements
+            },
           })
           .returning();
 
