@@ -3,6 +3,9 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Extraction, Tag } from 'db/schema';
 
 // Initialize Supabase client with error handling
+console.log('Starting Supabase initialization...');
+
+// Check environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
@@ -15,21 +18,32 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing required Supabase configuration');
 }
 
-console.log('Initializing Supabase client...');
+console.log('Supabase environment variables verified');
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce'
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
+let supabaseInstance: ReturnType<typeof createClient>;
+
+try {
+  console.log('Creating Supabase client...');
+  supabaseInstance = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce'
     },
-  },
-});
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
+    },
+  });
+  console.log('Supabase client created successfully');
+} catch (error) {
+  console.error('Failed to create Supabase client:', error);
+  throw error;
+}
+
+export const supabase = supabaseInstance;
 
 // Realtime subscription utilities
 interface RealtimeSubscription {

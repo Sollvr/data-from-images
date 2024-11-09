@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -16,9 +16,11 @@ import {
   CheckCircle,
   Zap,
   Shield,
-  Users
+  Users,
+  Loader2
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import "../styles/landing.css";
 
 const container = {
@@ -36,12 +38,48 @@ const item = {
   show: { opacity: 1, y: 0 }
 };
 
-export default function Landing() {
+function LoadingSpinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+function FeatureCard({ 
+  icon, 
+  title, 
+  description 
+}: { 
+  icon: React.ReactNode; 
+  title: string; 
+  description: string;
+}) {
+  return (
+    <motion.div variants={item}>
+      <Card className="feature-card h-full">
+        <div className="p-6 space-y-4">
+          <div className="text-primary">{icon}</div>
+          <h3 className="text-xl font-semibold">{title}</h3>
+          <p className="text-muted-foreground">{description}</p>
+        </div>
+      </Card>
+    </motion.div>
+  );
+}
+
+function LandingContent() {
   const { user } = useUser();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
     console.log("Landing page mounted");
+    return () => {
+      console.log("Landing page unmounted");
+    };
   }, []);
 
   const features = [
@@ -103,8 +141,6 @@ export default function Landing() {
       text: "24/7 Availability"
     }
   ];
-
-  console.log("Rendering Landing page");
 
   return (
     <ScrollArea className="h-screen w-full">
@@ -246,24 +282,25 @@ export default function Landing() {
   );
 }
 
-function FeatureCard({ 
-  icon, 
-  title, 
-  description 
-}: { 
-  icon: React.ReactNode; 
-  title: string; 
-  description: string;
-}) {
+export default function Landing() {
   return (
-    <motion.div variants={item}>
-      <Card className="feature-card h-full">
-        <div className="p-6 space-y-4">
-          <div className="text-primary">{icon}</div>
-          <h3 className="text-xl font-semibold">{title}</h3>
-          <p className="text-muted-foreground">{description}</p>
+    <ErrorBoundary
+      fallback={
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <Card className="w-full max-w-md p-6">
+            <h2 className="text-2xl font-bold text-center text-destructive mb-4">
+              Error Loading Landing Page
+            </h2>
+            <p className="text-center text-muted-foreground">
+              There was a problem loading the landing page. Please try refreshing the page.
+            </p>
+          </Card>
         </div>
-      </Card>
-    </motion.div>
+      }
+    >
+      <Suspense fallback={<LoadingSpinner />}>
+        <LandingContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }
