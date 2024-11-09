@@ -14,15 +14,6 @@ interface ExtractedData {
   };
 }
 
-interface AnalysisResult {
-  analysis: string;
-  calculations?: {
-    total?: number;
-    average?: number;
-    breakdown?: { [key: string]: number };
-  };
-}
-
 export async function analyzeImage(base64Image: string, requirements?: string): Promise<ExtractedData> {
   try {
     const defaultPrompt = `Analyze this image and extract the following:
@@ -42,7 +33,7 @@ Return the results in a structured format separating the raw text from the ident
       : defaultPrompt;
 
     const visionResponse = await openai.chat.completions.create({
-      model: "gpt-4-vision-0125",
+      model: "gpt-4o",
       messages: [
         {
           role: "user",
@@ -58,7 +49,7 @@ Return the results in a structured format separating the raw text from the ident
         },
       ],
       max_tokens: 1500,
-      temperature: 0.3,
+      temperature: 0.3, // Lower temperature for more focused pattern recognition
     });
 
     const content = visionResponse.choices[0].message.content || "";
@@ -83,83 +74,7 @@ Return the results in a structured format separating the raw text from the ident
   }
 }
 
-export async function analyzeExtractedText(text: string, prompt: string): Promise<AnalysisResult> {
-  try {
-    const defaultAnalysisPrompt = `
-Please analyze the following text and provide insights. If monetary amounts are present:
-1. Calculate the total sum
-2. Calculate the average amount
-3. Provide a breakdown of different categories if applicable
-4. Format all monetary values with proper currency symbols
-
-Additional user requirements: ${prompt}
-
-Text to analyze:
-${text}`;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [
-        {
-          role: "user",
-          content: defaultAnalysisPrompt,
-        },
-      ],
-      temperature: 0.3,
-      max_tokens: 1000,
-    });
-
-    const analysis = response.choices[0].message.content || "";
-    
-    // Extract calculations from the analysis
-    const calculations = {
-      total: extractTotalAmount(analysis),
-      average: extractAverageAmount(analysis),
-      breakdown: extractBreakdown(analysis),
-    };
-
-    return {
-      analysis,
-      calculations,
-    };
-  } catch (error) {
-    console.error("OpenAI API error:", error);
-    throw new Error("Failed to analyze text");
-  }
-}
-
 function extractPatterns(text: string, pattern: RegExp): string[] {
   const matches = text.match(pattern) || [];
   return [...new Set(matches)]; // Remove duplicates
-}
-
-function extractTotalAmount(text: string): number | undefined {
-  const totalMatch = text.match(/total:?\s*\$?([\d,]+\.?\d*)/i);
-  if (totalMatch) {
-    return parseFloat(totalMatch[1].replace(/,/g, ''));
-  }
-  return undefined;
-}
-
-function extractAverageAmount(text: string): number | undefined {
-  const avgMatch = text.match(/average:?\s*\$?([\d,]+\.?\d*)/i);
-  if (avgMatch) {
-    return parseFloat(avgMatch[1].replace(/,/g, ''));
-  }
-  return undefined;
-}
-
-function extractBreakdown(text: string): { [key: string]: number } | undefined {
-  const breakdown: { [key: string]: number } = {};
-  const lines = text.split('\n');
-  
-  for (const line of lines) {
-    const match = line.match(/([^:]+):\s*\$?([\d,]+\.?\d*)/);
-    if (match) {
-      const [, category, amount] = match;
-      breakdown[category.trim()] = parseFloat(amount.replace(/,/g, ''));
-    }
-  }
-  
-  return Object.keys(breakdown).length > 0 ? breakdown : undefined;
 }

@@ -20,13 +20,6 @@ interface ImageUploadProps {
 export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [requirements, setRequirements] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-  const handleExtract = async () => {
-    if (selectedFile) {
-      await onImageUpload(selectedFile, requirements);
-    }
-  };
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
@@ -37,10 +30,10 @@ export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
           setPreview(reader.result as string);
         };
         reader.readAsDataURL(file);
-        setSelectedFile(file);
+        await onImageUpload(file, requirements);
       }
     },
-    []
+    [onImageUpload, requirements]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -63,7 +56,7 @@ export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
                 <Info className="h-4 w-4 text-muted-foreground cursor-help" />
               </TooltipTrigger>
               <TooltipContent>
-                <p>Upload an image and specify what information to extract. Click 'Extract Text' when ready.</p>
+                <p>Upload an image and specify what information you want to extract</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -99,7 +92,6 @@ export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
               onClick={(e) => {
                 e.stopPropagation();
                 setPreview(null);
-                setSelectedFile(null);
               }}
             >
               Choose Another Image
@@ -125,19 +117,6 @@ export function ImageUpload({ onImageUpload, isLoading }: ImageUploadProps) {
           </div>
         )}
       </div>
-
-      {selectedFile && !isLoading && (
-        <Button
-          className="w-full mt-4"
-          onClick={(e) => {
-            e.preventDefault();
-            handleExtract();
-          }}
-        >
-          <ImageIcon className="h-4 w-4 mr-2" />
-          Extract Text
-        </Button>
-      )}
     </Card>
   );
 }
