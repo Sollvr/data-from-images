@@ -37,7 +37,7 @@ export function TagManager({ tags, onAddTag, onRemoveTag }: TagManagerProps) {
               <Info className="h-4 w-4 text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent>
-              <p>Add tags to categorize and organize your extractions</p>
+              <p>Organize your extractions with custom tags. Tags are automatically suggested based on detected patterns.</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

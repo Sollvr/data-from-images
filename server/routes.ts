@@ -3,7 +3,7 @@ import multer from "multer";
 import { setupAuth } from "./auth";
 import { db } from "db";
 import { extractions, tags } from "db/schema";
-import { analyzeImage } from "./openai";
+import { analyzeImage, analyzeExtractedText } from "./openai";
 import { eq } from "drizzle-orm";
 
 const upload = multer({
@@ -59,6 +59,25 @@ export function registerRoutes(app: Express) {
       return res
         .status(500)
         .json({ message: "Failed to extract text from image" });
+    }
+  });
+
+  // Analyze extracted text
+  app.post("/api/analyze", async (req, res) => {
+    const { text, prompt } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ message: "No text provided for analysis" });
+    }
+
+    try {
+      const analysisResult = await analyzeExtractedText(text, prompt || "");
+      return res.json(analysisResult);
+    } catch (error) {
+      console.error("Error analyzing text:", error);
+      return res
+        .status(500)
+        .json({ message: "Failed to analyze text" });
     }
   });
 
