@@ -16,7 +16,7 @@ const upload = multer({
 export function registerRoutes(app: Express) {
   setupAuth(app);
 
-  // Extract text from image
+  // Extract text from image with pattern recognition
   app.post("/api/extract", upload.single("image"), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ message: "No image file provided" });
@@ -25,7 +25,7 @@ export function registerRoutes(app: Express) {
     try {
       const base64Image = req.file.buffer.toString("base64");
       const requirements = req.body.requirements;
-      const extractedText = await analyzeImage(base64Image, requirements);
+      const extractedData = await analyzeImage(base64Image, requirements);
 
       if (req.user) {
         // Save extraction if user is authenticated
@@ -34,18 +34,26 @@ export function registerRoutes(app: Express) {
           .values({
             user_id: req.user.id,
             image_url: "", // Store image URL if needed
-            extracted_text: extractedText,
-            metadata: { 
+            extracted_text: extractedData.text,
+            metadata: {
               filename: req.file.originalname,
-              requirements: requirements
+              requirements: requirements,
+              patterns: extractedData.patterns,
             },
           })
           .returning();
 
-        return res.json({ text: extractedText, extraction });
+        return res.json({ 
+          text: extractedData.text, 
+          patterns: extractedData.patterns,
+          extraction 
+        });
       }
 
-      return res.json({ text: extractedText });
+      return res.json({ 
+        text: extractedData.text, 
+        patterns: extractedData.patterns 
+      });
     } catch (error) {
       console.error("Error extracting text:", error);
       return res

@@ -8,11 +8,21 @@ import { LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
+interface Patterns {
+  dates?: string[];
+  amounts?: string[];
+  emails?: string[];
+  phoneNumbers?: string[];
+  addresses?: string[];
+  identifiers?: string[];
+}
+
 export default function Home() {
   const { user, logout } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [extractedText, setExtractedText] = useState("");
+  const [patterns, setPatterns] = useState<Patterns | undefined>();
   const [tags, setTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -34,6 +44,19 @@ export default function Home() {
 
       const data = await response.json();
       setExtractedText(data.text);
+      setPatterns(data.patterns);
+
+      // Automatically generate tags from recognized patterns
+      const newTags = new Set<string>();
+      if (data.patterns) {
+        if (data.patterns.dates?.length) newTags.add("date");
+        if (data.patterns.amounts?.length) newTags.add("amount");
+        if (data.patterns.emails?.length) newTags.add("email");
+        if (data.patterns.phoneNumbers?.length) newTags.add("phone");
+        if (data.patterns.addresses?.length) newTags.add("address");
+        if (data.patterns.identifiers?.length) newTags.add("reference");
+      }
+      setTags(Array.from(newTags));
     } catch (error) {
       toast({
         variant: "destructive",
@@ -77,7 +100,11 @@ export default function Home() {
             onRemoveTag={handleRemoveTag}
           />
         </div>
-        <ExtractedText text={extractedText} isLoading={isLoading} />
+        <ExtractedText 
+          text={extractedText} 
+          patterns={patterns}
+          isLoading={isLoading} 
+        />
       </div>
     </div>
   );
