@@ -3,15 +3,15 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  username: text("username").unique().notNull(),
-  password: text("password").notNull(),
+  id: text("id").primaryKey(), // Changed to text for Supabase UUID compatibility
+  email: text("email").unique().notNull(),
   created_at: timestamp("created_at").defaultNow(),
+  metadata: jsonb("metadata"),
 });
 
 export const extractions = pgTable("extractions", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  user_id: integer("user_id").references(() => users.id),
+  user_id: text("user_id").references(() => users.id), // Updated to match user.id type
   image_url: text("image_url").notNull(),
   extracted_text: text("extracted_text").notNull(),
   metadata: jsonb("metadata"),
@@ -20,7 +20,7 @@ export const extractions = pgTable("extractions", {
 
 export const tags = pgTable("tags", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  user_id: integer("user_id").references(() => users.id),
+  user_id: text("user_id").references(() => users.id), // Updated to match user.id type
   extraction_id: integer("extraction_id").references(() => extractions.id),
   name: text("name").notNull(),
   created_at: timestamp("created_at").defaultNow(),

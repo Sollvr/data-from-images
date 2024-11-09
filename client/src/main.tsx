@@ -7,6 +7,7 @@ import { fetcher } from "./lib/fetcher";
 import { Toaster } from "@/components/ui/toaster";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
 import Landing from "./pages/Landing";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -20,6 +21,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/" component={Landing} />
           <Route path="/app" component={Home} />
           <Route path="/auth" component={Auth} />
+          <Route path="/auth/callback" component={AuthCallback} />
           <Route>404 Page Not Found</Route>
         </Switch>
         <Toaster />

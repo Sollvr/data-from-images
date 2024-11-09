@@ -1,62 +1,53 @@
 import useSWR from "swr";
-import type { User, InsertUser } from "db/schema";
+import { supabase } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
 
 export function useUser() {
-  const { data, error, mutate } = useSWR<User, Error>("/api/user", {
-    revalidateOnFocus: false,
+  const { data: user, error, mutate } = useSWR<User | null>('user', async () => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return session?.user ?? null;
   });
 
   return {
-    user: data,
-    isLoading: !error && !data,
+    user,
+    isLoading: !error && !user,
     error,
-    login: async (user: InsertUser) => {
-      const res = await handleRequest("/login", "POST", user);
-      mutate();
-      return res;
+    login: {
+      email: async (email: string, password: string) => {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) return { ok: false, message: error.message };
+        await mutate();
+        return { ok: true };
+      },
+      google: async () => {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+        if (error) return { ok: false, message: error.message };
+        return { ok: true };
+      },
     },
     logout: async () => {
-      const res = await handleRequest("/logout", "POST");
-      mutate(undefined);
-      return res;
+      const { error } = await supabase.auth.signOut();
+      if (error) return { ok: false, message: error.message };
+      await mutate(null);
+      return { ok: true };
     },
-    register: async (user: InsertUser) => {
-      const res = await handleRequest("/register", "POST", user);
-      mutate();
-      return res;
+    register: async (email: string, password: string) => {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) return { ok: false, message: error.message };
+      await mutate();
+      return { ok: true };
     },
   };
-}
-
-type RequestResult =
-  | {
-      ok: true;
-    }
-  | {
-      ok: false;
-      message: string;
-    };
-
-async function handleRequest(
-  url: string,
-  method: string,
-  body?: InsertUser
-): Promise<RequestResult> {
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { ok: false, message: errorData.message };
-    }
-
-    return { ok: true };
-  } catch (e: any) {
-    return { ok: false, message: e.toString() };
-  }
 }
