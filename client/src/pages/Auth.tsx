@@ -8,25 +8,32 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, Lock, Loader2 } from "lucide-react";
+import { Mail, Lock, Loader2, AlertCircle } from "lucide-react";
 import { FaGoogle } from "react-icons/fa";
 import { Separator } from "@/components/ui/separator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import {
+  Alert,
+  AlertDescription,
+} from "@/components/ui/alert";
 
 const authSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 function AuthContent() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const { login, register } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
   useEffect(() => {
     console.log('Auth component mounted');
+    setAuthError(null); // Clear any previous errors
   }, []);
 
   const form = useForm({
@@ -38,6 +45,7 @@ function AuthContent() {
   });
 
   const onSubmit = async (data: z.infer<typeof authSchema>) => {
+    setAuthError(null);
     console.log('Attempting authentication...');
     setIsLoading(true);
     try {
@@ -51,48 +59,33 @@ function AuthContent() {
         setLocation("/app");
       } else {
         console.error('Authentication failed:', result.message);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: result.message,
-        });
+        setAuthError(result.message);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Unexpected error during authentication:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "An unexpected error occurred",
-      });
+      setAuthError(error?.message || "An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    setAuthError(null);
     console.log('Attempting Google sign in...');
-    setIsLoading(true);
+    setGoogleLoading(true);
     try {
       const result = await login.google();
       if (!result.ok) {
         console.error('Google sign in failed:', result.message);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: result.message,
-        });
+        setAuthError(result.message);
       } else {
         console.log('Google sign in initiated...');
+        // Don't clear loading state as we're redirecting
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Unexpected error during Google sign in:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to sign in with Google",
-      });
-    } finally {
-      setIsLoading(false);
+      setAuthError(error?.message || "Failed to sign in with Google");
+      setGoogleLoading(false);
     }
   };
 
@@ -103,18 +96,25 @@ function AuthContent() {
           {isLogin ? "Welcome Back" : "Create Account"}
         </h1>
         
+        {authError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{authError}</AlertDescription>
+          </Alert>
+        )}
+
         <Button 
           variant="outline" 
           className="w-full" 
           onClick={handleGoogleSignIn}
-          disabled={isLoading}
+          disabled={isLoading || googleLoading}
         >
-          {isLoading ? (
+          {googleLoading ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           ) : (
             <FaGoogle className="h-4 w-4 mr-2" />
           )}
-          Continue with Google
+          {googleLoading ? "Redirecting..." : "Continue with Google"}
         </Button>
 
         <div className="relative">
@@ -137,7 +137,7 @@ function AuthContent() {
                 type="email"
                 {...form.register("email")}
                 className="pl-9"
-                disabled={isLoading}
+                disabled={isLoading || googleLoading}
               />
             </div>
             {form.formState.errors.email && (
@@ -155,7 +155,7 @@ function AuthContent() {
                 placeholder="Password"
                 {...form.register("password")}
                 className="pl-9"
-                disabled={isLoading}
+                disabled={isLoading || googleLoading}
               />
             </div>
             {form.formState.errors.password && (
@@ -165,10 +165,12 @@ function AuthContent() {
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : null}
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={isLoading || googleLoading}
+          >
+            {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isLogin ? "Sign In" : "Sign Up"}
           </Button>
         </form>
@@ -176,9 +178,13 @@ function AuthContent() {
         <div className="text-center">
           <Button
             variant="link"
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setAuthError(null);
+              form.reset();
+            }}
             className="text-sm"
-            disabled={isLoading}
+            disabled={isLoading || googleLoading}
           >
             {isLogin
               ? "Don't have an account? Sign Up"
