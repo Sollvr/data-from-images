@@ -22,6 +22,9 @@ interface Patterns {
   phoneNumbers?: string[];
   addresses?: string[];
   identifiers?: string[];
+  urls?: string[];
+  socialMediaHandles?: string[];
+  productCodes?: string[];
 }
 
 interface ExtractedTextProps {
@@ -32,6 +35,7 @@ interface ExtractedTextProps {
 
 export function ExtractedText({ text, patterns, isLoading }: ExtractedTextProps) {
   const [copied, setCopied] = useState(false);
+  const [selectedPattern, setSelectedPattern] = useState<string | null>(null);
 
   const copyToClipboard = async () => {
     await navigator.clipboard.writeText(text);
@@ -41,13 +45,43 @@ export function ExtractedText({ text, patterns, isLoading }: ExtractedTextProps)
 
   const hasPatterns = patterns && Object.values(patterns).some(arr => arr && arr.length > 0);
 
-  const patternLabels = {
-    dates: "Dates",
-    amounts: "Monetary Amounts",
-    emails: "Email Addresses",
-    phoneNumbers: "Phone Numbers",
-    addresses: "Physical Addresses",
-    identifiers: "Reference Numbers",
+  const patternLabels: Record<keyof Patterns, { label: string; description: string }> = {
+    dates: {
+      label: "Dates",
+      description: "Dates in various formats including relative dates"
+    },
+    amounts: {
+      label: "Monetary Amounts",
+      description: "Currency values in different formats and denominations"
+    },
+    emails: {
+      label: "Email Addresses",
+      description: "Electronic mail addresses"
+    },
+    phoneNumbers: {
+      label: "Phone Numbers",
+      description: "Contact numbers in various formats"
+    },
+    addresses: {
+      label: "Physical Addresses",
+      description: "Postal and street addresses"
+    },
+    identifiers: {
+      label: "Reference Numbers",
+      description: "Invoice numbers, IDs, and other reference codes"
+    },
+    urls: {
+      label: "Web URLs",
+      description: "Website addresses and links"
+    },
+    socialMediaHandles: {
+      label: "Social Media",
+      description: "Social media handles and profile links"
+    },
+    productCodes: {
+      label: "Product Codes",
+      description: "SKUs, barcodes, and product identifiers"
+    }
   };
 
   return (
@@ -61,7 +95,7 @@ export function ExtractedText({ text, patterns, isLoading }: ExtractedTextProps)
                 <Info className="h-4 w-4 text-muted-foreground cursor-help" />
               </TooltipTrigger>
               <TooltipContent>
-                <p>Text and patterns extracted from your uploaded image</p>
+                <p>Text and recognized patterns from your image</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -99,28 +133,59 @@ export function ExtractedText({ text, patterns, isLoading }: ExtractedTextProps)
         </div>
 
         {hasPatterns && !isLoading && (
-          <Accordion type="single" collapsible className="w-full">
+          <Accordion 
+            type="single" 
+            collapsible 
+            className="w-full"
+            value={selectedPattern || undefined}
+            onValueChange={setSelectedPattern}
+          >
             <AccordionItem value="patterns">
-              <AccordionTrigger>
-                <span className="text-sm font-medium">Recognized Patterns</span>
+              <AccordionTrigger className="hover:no-underline">
+                <span className="text-sm font-medium flex items-center gap-2">
+                  Recognized Patterns
+                  <span className="px-2 py-1 text-xs bg-primary/10 rounded-full">
+                    {Object.keys(patterns!).length} types
+                  </span>
+                </span>
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4 p-2">
                   {Object.entries(patterns!).map(([key, values]) => {
                     if (!values || values.length === 0) return null;
+                    const patternKey = key as keyof Patterns;
                     return (
                       <div key={key} className="space-y-2">
-                        <h4 className="text-sm font-medium text-muted-foreground">
-                          {patternLabels[key as keyof Patterns]}
-                        </h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-medium">
+                            {patternLabels[patternKey].label}
+                          </h4>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{patternLabels[patternKey].description}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <span className="text-xs text-muted-foreground">
+                            ({values.length})
+                          </span>
+                        </div>
                         <div className="flex flex-wrap gap-2">
                           {values.map((value, index) => (
-                            <span
+                            <div
                               key={index}
-                              className="inline-block px-2 py-1 text-xs rounded-md bg-secondary"
+                              className="group relative"
                             >
-                              {value}
-                            </span>
+                              <span
+                                className="inline-block px-2 py-1 text-xs rounded-md bg-secondary hover:bg-secondary/80 transition-colors cursor-default"
+                              >
+                                {value}
+                              </span>
+                            </div>
                           ))}
                         </div>
                       </div>
