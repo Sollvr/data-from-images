@@ -123,11 +123,11 @@ export function setupAuth(app: Express) {
   });
 
   // Email verification route
-  app.get("/verify-email", async (req, res) => {
+  app.get("/auth/verify-email", async (req, res) => {
     const { token } = req.query;
 
     if (!token || typeof token !== "string") {
-      return res.redirect("https://datafromimages.replit.app/auth?error=" + encodeURIComponent("Invalid verification token"));
+      return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
     }
 
     try {
@@ -138,11 +138,11 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (!user) {
-        return res.redirect("https://datafromimages.replit.app/auth?error=" + encodeURIComponent("Invalid verification token"));
+        return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
       }
 
       if (user.verification_expires && new Date(user.verification_expires) < new Date()) {
-        return res.redirect("https://datafromimages.replit.app/auth?error=" + encodeURIComponent("Verification token has expired"));
+        return res.redirect("/auth?error=" + encodeURIComponent("Verification token has expired"));
       }
 
       await db
@@ -154,11 +154,17 @@ export function setupAuth(app: Express) {
         })
         .where(eq(users.id, user.id));
 
-      // Redirect to app after successful verification
-      res.redirect("https://datafromimages.replit.app/app");
+      // Log the user in automatically after verification
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Error logging in after verification:", err);
+          return res.redirect("/auth?error=" + encodeURIComponent("Failed to complete verification"));
+        }
+        res.redirect("/auth?verified=true");
+      });
     } catch (error) {
       console.error("Error verifying email:", error);
-      res.redirect("https://datafromimages.replit.app/auth?error=" + encodeURIComponent("Failed to verify email"));
+      res.redirect("/auth?error=" + encodeURIComponent("Failed to verify email"));
     }
   });
 

@@ -16,7 +16,7 @@ export async function generateVerificationToken(): Promise<string> {
 }
 
 export async function sendVerificationEmail(email: string, token: string) {
-  const verificationUrl = `https://datafromimages.replit.app/verify-email?token=${token}`;
+  const verificationUrl = `${process.env.VITE_API_URL}/auth/verify-email?token=${token}`;
   
   const mailOptions = {
     from: process.env.EMAIL_USER,
