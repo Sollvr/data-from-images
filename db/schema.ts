@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -8,6 +8,9 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   created_at: timestamp("created_at").defaultNow(),
   metadata: jsonb("metadata"),
+  email_verified: boolean("email_verified").default(false),
+  verification_token: text("verification_token"),
+  verification_expires: timestamp("verification_expires"),
 });
 
 export const extractions = pgTable("extractions", {
@@ -28,7 +31,8 @@ export const tags = pgTable("tags", {
 });
 
 export const insertUserSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
+  username: z.string().min(3, "Username must be at least 3 characters")
+    .email("Username must be a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 

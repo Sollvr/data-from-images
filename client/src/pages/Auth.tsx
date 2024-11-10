@@ -8,13 +8,13 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { User, Lock, Loader2, AlertCircle } from "lucide-react";
+import { User, Lock, Loader2, AlertCircle, MailCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Separator } from "@/components/ui/separator";
 
 const authSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
+  username: z.string().min(3, "Username must be at least 3 characters").email("Must be a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -22,6 +22,7 @@ function AuthContent() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [verificationSent, setVerificationSent] = useState(false);
   const { login, register } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -29,14 +30,22 @@ function AuthContent() {
   useEffect(() => {
     console.log("Auth component mounted");
     setAuthError(null);
+    setVerificationSent(false);
 
-    // Check for error in URL params
+    // Check for params in URL
     const params = new URLSearchParams(window.location.search);
     const error = params.get("error");
+    const verified = params.get("verified");
+
     if (error === "google-auth-failed") {
       setAuthError("Google authentication failed. Please try again.");
+    } else if (verified === "true") {
+      toast({
+        title: "Email verified",
+        description: "Your email has been verified. You can now log in.",
+      });
     }
-  }, []);
+  }, [toast]);
 
   const form = useForm({
     resolver: zodResolver(authSchema),
@@ -48,6 +57,7 @@ function AuthContent() {
 
   const onSubmit = async (data: z.infer<typeof authSchema>) => {
     setAuthError(null);
+    setVerificationSent(false);
     console.log("Attempting authentication...");
     setIsLoading(true);
     try {
@@ -56,8 +66,12 @@ function AuthContent() {
         : register(data.username, data.password));
 
       if (result.ok) {
-        console.log("Authentication successful, redirecting...");
-        setLocation("/app");
+        if (isLogin) {
+          console.log("Authentication successful, redirecting...");
+          setLocation("/app");
+        } else {
+          setVerificationSent(true);
+        }
       } else {
         console.error("Authentication failed:", result.message);
         setAuthError(result.message);
@@ -70,9 +84,65 @@ function AuthContent() {
     }
   };
 
+  const handleResendVerification = async () => {
+    const email = form.getValues("username");
+    if (!email) {
+      setAuthError("Please enter your email address");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch("/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+
+      toast({
+        title: "Verification email sent",
+        description: "Please check your email for the verification link.",
+      });
+    } catch (error: any) {
+      setAuthError(error?.message || "Failed to resend verification email");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleGoogleLogin = () => {
     window.location.href = "/auth/google";
   };
+
+  if (verificationSent) {
+    return (
+      <div className="container mx-auto flex items-center justify-center min-h-screen p-6">
+        <Card className="w-full max-w-md p-6 space-y-6">
+          <div className="text-center space-y-4">
+            <MailCheck className="h-12 w-12 mx-auto text-primary" />
+            <h2 className="text-2xl font-bold">Check your email</h2>
+            <p className="text-muted-foreground">
+              We've sent you a verification link. Please check your email to verify your account.
+            </p>
+            <Button
+              variant="outline"
+              onClick={handleResendVerification}
+              disabled={isLoading}
+              className="w-full"
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Resend verification email
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto flex items-center justify-center min-h-screen p-6">
@@ -93,7 +163,7 @@ function AuthContent() {
             <div className="relative">
               <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Username"
+                placeholder="Email address"
                 {...form.register("username")}
                 className="pl-9"
                 disabled={isLoading}
@@ -175,6 +245,7 @@ function AuthContent() {
             onClick={() => {
               setIsLogin(!isLogin);
               setAuthError(null);
+              setVerificationSent(false);
               form.reset();
             }}
             className="text-sm"
