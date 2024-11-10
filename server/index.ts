@@ -7,11 +7,31 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Configure production URL and proxy settings
+const PORT = process.env.PORT || 5000;
+const PROD_URL = process.env.REPL_SLUG ? 
+  `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 
+  `http://localhost:${PORT}`;
+
+console.log('Starting server with configuration:', {
+  environment: app.get('env'),
+  port: PORT,
+  productionUrl: PROD_URL
+});
+
 (async () => {
+  // Set trust proxy for production
+  if (app.get('env') === 'production') {
+    app.set('trust proxy', 1);
+    console.log('Trust proxy enabled for production');
+  }
+
   registerRoutes(app);
   const server = createServer(app);
 
+  // Enhanced error handling
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error('Server error:', err);
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
@@ -19,18 +39,15 @@ app.use(express.urlencoded({ extended: false }));
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Setup vite in development and static serving in production
   if (app.get("env") === "development") {
+    console.log('Setting up Vite development server');
     await setupVite(app, server);
   } else {
+    console.log('Setting up static file serving for production');
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client
-  const PORT = 5000;
   server.listen(PORT, "0.0.0.0", () => {
     const formattedTime = new Date().toLocaleTimeString("en-US", {
       hour: "2-digit",
@@ -39,6 +56,6 @@ app.use(express.urlencoded({ extended: false }));
       hour12: true,
     });
 
-    console.log(`${formattedTime} [express] serving on port ${PORT}`);
+    console.log(`${formattedTime} [express] Server running at ${PROD_URL}`);
   });
 })();
