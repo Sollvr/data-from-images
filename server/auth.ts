@@ -127,7 +127,7 @@ export function setupAuth(app: Express) {
     const { token } = req.query;
 
     if (!token || typeof token !== "string") {
-      return res.status(400).json({ message: "Invalid verification token" });
+      return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
     }
 
     try {
@@ -138,11 +138,11 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (!user) {
-        return res.status(400).json({ message: "Invalid verification token" });
+        return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
       }
 
       if (user.verification_expires && new Date(user.verification_expires) < new Date()) {
-        return res.status(400).json({ message: "Verification token has expired" });
+        return res.redirect("/auth?error=" + encodeURIComponent("Verification token has expired"));
       }
 
       await db
@@ -158,7 +158,7 @@ export function setupAuth(app: Express) {
       res.redirect("/auth?verified=true");
     } catch (error) {
       console.error("Error verifying email:", error);
-      res.status(500).json({ message: "Failed to verify email" });
+      res.redirect("/auth?error=" + encodeURIComponent("Failed to verify email"));
     }
   });
 
@@ -244,6 +244,5 @@ export function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  // Other routes remain the same...
   console.log("Authentication setup complete");
 }
