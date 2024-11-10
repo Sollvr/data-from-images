@@ -97,10 +97,10 @@ export function setupAuth(app: Express) {
 
   // Google Strategy
   const callbackURL = process.env.REPLIT_SLUG 
-    ? `https://${process.env.REPLIT_SLUG}.${process.env.REPLIT_OWNER}.repl.co/auth/google/callback`
+    ? `http://78ee77a7-0db2-4aba-a93c-4f0189368070-00-3pvvld4sjxiwu.pike.replit.dev/auth/google/callback`
     : 'http://localhost:5000/auth/google/callback';
 
-  console.log('Configured Google OAuth callback URL:', callbackURL);
+  console.log('Using Google OAuth callback URL:', callbackURL);
 
   passport.use(
     new GoogleStrategy(
