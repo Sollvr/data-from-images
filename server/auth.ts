@@ -226,6 +226,7 @@ export function setupAuth(app: Express) {
   app.get("/verify-email", async (req, res) => {
     console.log("Processing email verification request...");
     const { token } = req.query;
+    const baseUrl = process.env.REPLIT_URL || 'http://localhost:5000';
 
     if (!token || typeof token !== "string") {
       return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
@@ -253,7 +254,7 @@ export function setupAuth(app: Express) {
         })
         .where(eq(users.id, user.id));
 
-      res.redirect(`/complete-registration?email=${encodeURIComponent(user.username)}`);
+      res.redirect(`${baseUrl}/complete-registration?email=${encodeURIComponent(user.username)}`);
     } catch (error) {
       console.error("Error during email verification:", error);
       res.redirect("/auth?error=" + encodeURIComponent("Failed to verify email"));
