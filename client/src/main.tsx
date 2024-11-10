@@ -8,7 +8,6 @@ import { Toaster } from "@/components/ui/toaster";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import Landing from "./pages/Landing";
-import AuthCallback from "./pages/AuthCallback";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
 
@@ -36,27 +35,8 @@ function RouteChangeLogger() {
 }
 
 function AppRoutes() {
-  const [location] = useLocation();
-
-  useEffect(() => {
-    console.log("Current route:", location);
-  }, [location]);
-
   return (
-    <ErrorBoundary
-      fallback={
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <div className="text-center space-y-4">
-            <h2 className="text-2xl font-bold text-destructive">
-              Application Error
-            </h2>
-            <p className="text-muted-foreground">
-              An unexpected error occurred. Please refresh the page.
-            </p>
-          </div>
-        </div>
-      }
-    >
+    <>
       <RouteChangeLogger />
       <Switch>
         <Route path="/">
@@ -68,9 +48,6 @@ function AppRoutes() {
         <Route path="/auth">
           <Auth />
         </Route>
-        <Route path="/auth/callback">
-          <AuthCallback />
-        </Route>
         <Route>
           <div className="min-h-screen flex items-center justify-center p-4">
             <div className="text-center space-y-4">
@@ -80,7 +57,7 @@ function AppRoutes() {
           </div>
         </Route>
       </Switch>
-    </ErrorBoundary>
+    </>
   );
 }
 

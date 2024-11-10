@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -8,9 +8,6 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   created_at: timestamp("created_at").defaultNow(),
   metadata: jsonb("metadata"),
-  email_verified: boolean("email_verified").default(false),
-  verification_token: text("verification_token"),
-  verification_expires: timestamp("verification_expires"),
 });
 
 export const extractions = pgTable("extractions", {
@@ -30,15 +27,9 @@ export const tags = pgTable("tags", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
-// Enhanced validation for user registration
 export const insertUserSchema = z.object({
-  username: z.string()
-    .min(3, "Email must be at least 3 characters")
-    .email("Please enter a valid email address")
-    .transform(val => val.toLowerCase()),
-  password: z.string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one uppercase letter, one lowercase letter, and one number"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 export const selectUserSchema = createSelectSchema(users);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
+import { supabase } from '@/lib/supabase';
 import { Card } from "@/components/ui/card";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,42 +16,26 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // Check for error parameters
-        const params = new URLSearchParams(window.location.search);
-        const queryError = params.get('error');
-        if (queryError) {
-          throw new Error(decodeURIComponent(queryError));
-        }
-
-        // Check for error in hash (OAuth2 style)
+        // Check if there's an error in the URL
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const hashError = hashParams.get('error');
-        if (hashError) {
-          throw new Error(decodeURIComponent(hashError));
+        const errorDescription = hashParams.get('error_description');
+        if (errorDescription) {
+          throw new Error(errorDescription);
         }
 
-        // Verify authentication state
-        const response = await fetch('/api/user', {
-          credentials: 'include'
-        });
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            throw new Error('Authentication failed. Please try again.');
-          }
-          throw new Error('An unexpected error occurred.');
+        console.log('Processing authentication callback...');
+        const { error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          throw sessionError;
         }
 
-        // Successfully authenticated
         console.log('Authentication successful, redirecting...');
         setLocation('/app');
       } catch (error: any) {
         console.error('Error handling auth callback:', error);
         setError(error?.message || 'Failed to complete authentication');
-        // Redirect to auth page after a delay if there's an error
-        setTimeout(() => {
-          setLocation('/auth?error=' + encodeURIComponent(error?.message || 'Authentication failed'));
-        }, 3000);
       }
     };
 
