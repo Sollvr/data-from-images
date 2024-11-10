@@ -7,7 +7,6 @@ import { fetcher } from "./lib/fetcher";
 import { Toaster } from "@/components/ui/toaster";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
-import AuthCallback from "./pages/AuthCallback";
 import Landing from "./pages/Landing";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
@@ -27,11 +26,11 @@ function LoadingFallback() {
 
 function RouteChangeLogger() {
   const [location] = useLocation();
-  
+
   useEffect(() => {
-    console.log('Route changed:', location);
+    console.log("Route changed:", location);
   }, [location]);
-  
+
   return null;
 }
 
@@ -48,9 +47,6 @@ function AppRoutes() {
         </Route>
         <Route path="/auth">
           <Auth />
-        </Route>
-        <Route path="/auth/callback">
-          <AuthCallback />
         </Route>
         <Route>
           <div className="min-h-screen flex items-center justify-center p-4">
@@ -71,7 +67,9 @@ createRoot(document.getElementById("root")!).render(
       fallback={
         <div className="min-h-screen flex items-center justify-center p-4">
           <div className="text-center space-y-4">
-            <h2 className="text-2xl font-bold text-destructive">Application Error</h2>
+            <h2 className="text-2xl font-bold text-destructive">
+              Application Error
+            </h2>
             <p className="text-muted-foreground">
               An unexpected error occurred. Please refresh the page.
             </p>
@@ -79,12 +77,12 @@ createRoot(document.getElementById("root")!).render(
         </div>
       }
     >
-      <SWRConfig 
-        value={{ 
+      <SWRConfig
+        value={{
           fetcher,
           onError: (error) => {
-            console.error('SWR Global Error:', error);
-          }
+            console.error("SWR Global Error:", error);
+          },
         }}
       >
         <Suspense fallback={<LoadingFallback />}>
