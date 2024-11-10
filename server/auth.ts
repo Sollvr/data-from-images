@@ -1,5 +1,6 @@
 import passport from "passport";
 import { IVerifyOptions, Strategy as LocalStrategy } from "passport-local";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { type Express } from "express";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -58,6 +59,7 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Local Strategy
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
@@ -81,6 +83,50 @@ export function setupAuth(app: Express) {
     })
   );
 
+  // Google Strategy
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        callbackURL: "/auth/google/callback",
+        scope: ["email", "profile"],
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          // Check if user exists
+          const [existingUser] = await db
+            .select()
+            .from(users)
+            .where(eq(users.username, profile.emails![0].value))
+            .limit(1);
+
+          if (existingUser) {
+            return done(null, existingUser);
+          }
+
+          // Create new user
+          const [newUser] = await db
+            .insert(users)
+            .values({
+              username: profile.emails![0].value,
+              password: await crypto.hash(randomBytes(32).toString("hex")),
+              metadata: {
+                googleId: profile.id,
+                name: profile.displayName,
+                email: profile.emails![0].value,
+              },
+            })
+            .returning();
+
+          return done(null, newUser);
+        } catch (error) {
+          return done(error as Error);
+        }
+      }
+    )
+  );
+
   passport.serializeUser((user, done) => {
     done(null, user.id);
   });
@@ -98,6 +144,18 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Google Auth Routes
+  app.get("/auth/google", passport.authenticate("google"));
+
+  app.get(
+    "/auth/google/callback",
+    passport.authenticate("google", {
+      successRedirect: "/app",
+      failureRedirect: "/auth?error=google-auth-failed",
+    })
+  );
+
+  // Local Auth Routes
   app.post("/register", async (req, res, next) => {
     try {
       const result = insertUserSchema.safeParse(req.body);
