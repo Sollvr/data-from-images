@@ -45,6 +45,11 @@ export function setupAuth(app: Express) {
     throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set");
   }
 
+  if (!process.env.REPLIT_SLUG || !process.env.REPLIT_OWNER) {
+    console.error("Missing required Replit environment variables");
+    console.log("Falling back to localhost for development");
+  }
+
   const MemoryStore = createMemoryStore(session);
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "porygon-supremacy",
@@ -97,8 +102,11 @@ export function setupAuth(app: Express) {
   );
 
   // Google Strategy
-  const callbackURL = `${process.env.REPLIT_URL || "http://localhost:5000"}/auth/google/callback`;
-  console.log("Configuring Google OAuth callback URL:", callbackURL);
+  const callbackURL = process.env.REPLIT_SLUG 
+    ? `https://${process.env.REPLIT_SLUG}.${process.env.REPLIT_OWNER}.repl.co/auth/google/callback`
+    : 'http://localhost:5000/auth/google/callback';
+  
+  console.log('Using Google OAuth callback URL:', callbackURL);
 
   passport.use(
     new GoogleStrategy(
