@@ -16,9 +16,7 @@ export async function generateVerificationToken(): Promise<string> {
 }
 
 export async function sendVerificationEmail(email: string, token: string) {
-  // Use the VITE_API_URL from the client's .env if available, or fallback to a constructed URL
-  const baseUrl = process.env.VITE_API_URL || `http://localhost:${process.env.PORT || 5000}`;
-  const verificationUrl = `${baseUrl}/auth?token=${token}`;
+  const verificationUrl = `https://datafromimages.replit.app/verify-email?token=${token}`;
   
   const mailOptions = {
     from: process.env.EMAIL_USER,

@@ -127,7 +127,7 @@ export function setupAuth(app: Express) {
     const { token } = req.query;
 
     if (!token || typeof token !== "string") {
-      return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
+      return res.redirect("https://datafromimages.replit.app/auth?error=" + encodeURIComponent("Invalid verification token"));
     }
 
     try {
@@ -138,11 +138,11 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (!user) {
-        return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
+        return res.redirect("https://datafromimages.replit.app/auth?error=" + encodeURIComponent("Invalid verification token"));
       }
 
       if (user.verification_expires && new Date(user.verification_expires) < new Date()) {
-        return res.redirect("/auth?error=" + encodeURIComponent("Verification token has expired"));
+        return res.redirect("https://datafromimages.replit.app/auth?error=" + encodeURIComponent("Verification token has expired"));
       }
 
       await db
@@ -154,11 +154,11 @@ export function setupAuth(app: Express) {
         })
         .where(eq(users.id, user.id));
 
-      // Redirect to login page with success message
-      res.redirect("/auth?verified=true");
+      // Redirect to app after successful verification
+      res.redirect("https://datafromimages.replit.app/app");
     } catch (error) {
       console.error("Error verifying email:", error);
-      res.redirect("/auth?error=" + encodeURIComponent("Failed to verify email"));
+      res.redirect("https://datafromimages.replit.app/auth?error=" + encodeURIComponent("Failed to verify email"));
     }
   });
 
