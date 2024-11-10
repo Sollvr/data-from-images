@@ -235,13 +235,14 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Email verification endpoint
+  // Email verification endpoint with improved error handling and logging
   app.get("/verify-email", async (req, res) => {
     console.log("Processing email verification request...");
     const { token } = req.query;
     const baseUrl = 'https://SnapExtract-App.numaanmkcloud.repl.co';
 
     if (!token || typeof token !== "string") {
+      console.error("Invalid token provided:", token);
       return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
     }
 
@@ -253,13 +254,16 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (!user) {
+        console.error("No user found for token:", token);
         return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
       }
 
       if (user.verification_expires && new Date(user.verification_expires) < new Date()) {
+        console.error("Token expired for user:", user.username);
         return res.redirect("/auth?error=" + encodeURIComponent("Verification token has expired"));
       }
 
+      // Update user verification status
       await db
         .update(users)
         .set({
@@ -267,7 +271,12 @@ export function setupAuth(app: Express) {
         })
         .where(eq(users.id, user.id));
 
-      res.redirect(`${baseUrl}/complete-registration?email=${encodeURIComponent(user.username)}&verified=true`);
+      console.log("Email verified successfully for user:", user.username);
+      
+      // Redirect to complete registration with email parameter
+      const redirectUrl = `${baseUrl}/complete-registration?email=${encodeURIComponent(user.username)}&verified=true`;
+      console.log("Redirecting to:", redirectUrl);
+      res.redirect(redirectUrl);
     } catch (error) {
       console.error("Error during email verification:", error);
       res.redirect("/auth?error=" + encodeURIComponent("Failed to verify email"));
@@ -312,6 +321,38 @@ export function setupAuth(app: Express) {
       console.error("Error resending verification:", error);
       res.status(500).json({ message: "Failed to resend verification email" });
     }
+  });
+
+  // Login endpoint
+  app.post("/login", (req, res, next) => {
+    passport.authenticate("local", (err: Error, user: any, info: ExtendedVerifyOptions) => {
+      if (err) {
+        return res.status(500).json({ message: "Authentication error occurred" });
+      }
+      if (!user) {
+        if (info.needsVerification) {
+          return res.status(403).json({
+            message: info.message,
+            needsVerification: true,
+            email: info.email,
+          });
+        }
+        return res.status(401).json({ message: info.message });
+      }
+      req.logIn(user, (err) => {
+        if (err) {
+          return res.status(500).json({ message: "Failed to establish session" });
+        }
+        return res.json({ user });
+      });
+    })(req, res, next);
+  });
+
+  // Logout endpoint
+  app.post("/logout", (req, res) => {
+    req.logout(() => {
+      res.json({ message: "Logged out successfully" });
+    });
   });
 
   console.log("Authentication setup complete");

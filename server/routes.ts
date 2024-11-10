@@ -2,7 +2,7 @@ import type { Express } from "express";
 import multer from "multer";
 import { setupAuth } from "./auth";
 import { db } from "db";
-import { extractions, tags } from "db/schema";
+import { extractions, tags, users } from "db/schema";
 import { analyzeImage } from "./openai";
 import { eq } from "drizzle-orm";
 import { Parser } from "json2csv";
@@ -164,6 +164,26 @@ export function registerRoutes(app: Express) {
     } catch (error) {
       console.error("Error adding tag:", error);
       res.status(500).json({ message: "Failed to add tag" });
+    }
+  });
+
+  // Database cleanup endpoint
+  app.delete("/api/cleanup-database", async (req, res) => {
+    try {
+      await db.transaction(async (tx) => {
+        // Delete in correct order due to foreign key constraints
+        await tx.delete(tags);
+        await tx.delete(extractions);
+        await tx.delete(users);
+      });
+      
+      res.json({ 
+        message: "Database cleaned successfully",
+        documentation: "To clean the database, send a DELETE request to: https://snapextract-app.numaanmkcloud.repl.co/api/cleanup-database"
+      });
+    } catch (error) {
+      console.error("Error cleaning database:", error);
+      res.status(500).json({ message: "Failed to clean database" });
     }
   });
 }
