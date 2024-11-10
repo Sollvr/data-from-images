@@ -38,6 +38,13 @@ declare global {
 
 export function setupAuth(app: Express) {
   console.log("Setting up authentication...");
+
+  // Verify required environment variables
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.error("Missing required Google OAuth credentials");
+    throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set");
+  }
+
   const MemoryStore = createMemoryStore(session);
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "porygon-supremacy",
@@ -90,22 +97,33 @@ export function setupAuth(app: Express) {
   );
 
   // Google Strategy
+  const callbackURL = `${process.env.REPLIT_URL || "http://localhost:5000"}/auth/google/callback`;
+  console.log("Configuring Google OAuth callback URL:", callbackURL);
+
   passport.use(
     new GoogleStrategy(
       {
         clientID: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        callbackURL: "/auth/google/callback",
+        callbackURL,
         scope: ["email", "profile"],
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
           console.log("Processing Google authentication callback...");
+          if (!profile.emails || profile.emails.length === 0) {
+            console.error("No email provided in Google profile");
+            return done(new Error("No email provided by Google"));
+          }
+
+          const userEmail = profile.emails[0].value;
+          console.log("Authenticating Google user:", userEmail);
+
           // Check if user exists
           const [existingUser] = await db
             .select()
             .from(users)
-            .where(eq(users.username, profile.emails![0].value))
+            .where(eq(users.username, userEmail))
             .limit(1);
 
           if (existingUser) {
@@ -118,12 +136,12 @@ export function setupAuth(app: Express) {
           const [newUser] = await db
             .insert(users)
             .values({
-              username: profile.emails![0].value,
+              username: userEmail,
               password: await crypto.hash(randomBytes(32).toString("hex")),
               metadata: {
                 googleId: profile.id,
                 name: profile.displayName,
-                email: profile.emails![0].value,
+                email: userEmail,
               },
             })
             .returning();
