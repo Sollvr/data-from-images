@@ -37,6 +37,7 @@ declare global {
 }
 
 export function setupAuth(app: Express) {
+  console.log("Setting up authentication...");
   const MemoryStore = createMemoryStore(session);
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "porygon-supremacy",
@@ -63,6 +64,7 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
+        console.log("Attempting local strategy authentication...");
         const [user] = await db
           .select()
           .from(users)
@@ -70,14 +72,18 @@ export function setupAuth(app: Express) {
           .limit(1);
 
         if (!user) {
+          console.log("User not found:", username);
           return done(null, false, { message: "Incorrect username." });
         }
         const isMatch = await crypto.compare(password, user.password);
         if (!isMatch) {
+          console.log("Password mismatch for user:", username);
           return done(null, false, { message: "Incorrect password." });
         }
+        console.log("Local authentication successful for user:", username);
         return done(null, user);
       } catch (err) {
+        console.error("Error in local strategy:", err);
         return done(err);
       }
     })
@@ -94,6 +100,7 @@ export function setupAuth(app: Express) {
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
+          console.log("Processing Google authentication callback...");
           // Check if user exists
           const [existingUser] = await db
             .select()
@@ -102,9 +109,11 @@ export function setupAuth(app: Express) {
             .limit(1);
 
           if (existingUser) {
+            console.log("Existing user found:", existingUser.username);
             return done(null, existingUser);
           }
 
+          console.log("Creating new user from Google profile...");
           // Create new user
           const [newUser] = await db
             .insert(users)
@@ -119,8 +128,10 @@ export function setupAuth(app: Express) {
             })
             .returning();
 
+          console.log("New user created:", newUser.username);
           return done(null, newUser);
         } catch (error) {
+          console.error("Error in Google strategy:", error);
           return done(error as Error);
         }
       }
@@ -128,11 +139,13 @@ export function setupAuth(app: Express) {
   );
 
   passport.serializeUser((user, done) => {
+    console.log("Serializing user:", user.id);
     done(null, user.id);
   });
 
   passport.deserializeUser(async (id: number, done) => {
     try {
+      console.log("Deserializing user:", id);
       const [user] = await db
         .select()
         .from(users)
@@ -140,26 +153,35 @@ export function setupAuth(app: Express) {
         .limit(1);
       done(null, user);
     } catch (err) {
+      console.error("Error deserializing user:", err);
       done(err);
     }
   });
 
   // Google Auth Routes
-  app.get("/auth/google", passport.authenticate("google"));
+  app.get("/auth/google", (req, res, next) => {
+    console.log("Starting Google authentication...");
+    passport.authenticate("google")(req, res, next);
+  });
 
   app.get(
     "/auth/google/callback",
-    passport.authenticate("google", {
-      successRedirect: "/app",
-      failureRedirect: "/auth?error=google-auth-failed",
-    })
+    (req, res, next) => {
+      console.log("Received Google callback...");
+      passport.authenticate("google", {
+        successRedirect: "/app",
+        failureRedirect: "/auth?error=google-auth-failed",
+      })(req, res, next);
+    }
   );
 
   // Local Auth Routes
   app.post("/register", async (req, res, next) => {
     try {
+      console.log("Processing registration request...");
       const result = insertUserSchema.safeParse(req.body);
       if (!result.success) {
+        console.log("Invalid registration input:", result.error.flatten());
         return res
           .status(400)
           .json({ message: "Invalid input", errors: result.error.flatten() });
@@ -175,6 +197,7 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (existingUser) {
+        console.log("Username already exists:", username);
         return res.status(400).json({ message: "Username already exists" });
       }
 
@@ -190,6 +213,7 @@ export function setupAuth(app: Express) {
         })
         .returning();
 
+      console.log("New user registered:", username);
       // Log the user in after registration
       req.login(newUser, (err) => {
         if (err) {
@@ -201,13 +225,16 @@ export function setupAuth(app: Express) {
         });
       });
     } catch (error) {
+      console.error("Error during registration:", error);
       next(error);
     }
   });
 
   app.post("/login", (req, res, next) => {
+    console.log("Processing login request...");
     const result = insertUserSchema.safeParse(req.body);
     if (!result.success) {
+      console.log("Invalid login input:", result.error.flatten());
       return res
         .status(400)
         .json({ message: "Invalid input", errors: result.error.flatten() });
@@ -215,17 +242,21 @@ export function setupAuth(app: Express) {
 
     const cb = (err: any, user: Express.User, info: IVerifyOptions) => {
       if (err) {
+        console.error("Login error:", err);
         return next(err);
       }
       if (!user) {
+        console.log("Login failed:", info.message);
         return res.status(400).json({
           message: info.message ?? "Login failed",
         });
       }
       req.logIn(user, (err) => {
         if (err) {
+          console.error("Error logging in:", err);
           return next(err);
         }
+        console.log("Login successful:", user.username);
         return res.json({
           message: "Login successful",
           user: { id: user.id, username: user.username },
@@ -236,18 +267,26 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/logout", (req, res) => {
+    console.log("Processing logout request...");
     req.logout((err) => {
       if (err) {
+        console.error("Error logging out:", err);
         return res.status(500).json({ message: "Logout failed" });
       }
+      console.log("Logout successful");
       res.json({ message: "Logout successful" });
     });
   });
 
   app.get("/api/user", (req, res) => {
+    console.log("Checking user authentication status...");
     if (req.isAuthenticated()) {
+      console.log("User is authenticated:", req.user.username);
       return res.json(req.user);
     }
+    console.log("User is not authenticated");
     res.status(401).json({ message: "Unauthorized" });
   });
+
+  console.log("Authentication setup complete");
 }
