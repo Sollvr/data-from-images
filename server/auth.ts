@@ -108,6 +108,7 @@ export function setupAuth(app: Express) {
         clientID: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         callbackURL,
+        scope: ["email", "profile"],
         proxy: true
       },
       async (accessToken, refreshToken, profile, done) => {
@@ -181,7 +182,9 @@ export function setupAuth(app: Express) {
   // Google Auth Routes
   app.get("/auth/google", (req, res, next) => {
     console.log("Starting Google authentication...");
-    passport.authenticate("google")(req, res, next);
+    passport.authenticate("google", {
+      scope: ["email", "profile"]
+    })(req, res, next);
   });
 
   app.get(
