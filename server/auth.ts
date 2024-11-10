@@ -96,8 +96,11 @@ export function setupAuth(app: Express) {
   );
 
   // Google Strategy
-  const callbackURL = 'https://SnapExtract-App.numaanmkcloud.repl.co/auth/callback';
-  console.log('Using Google OAuth callback URL:', callbackURL);
+  const callbackURL = process.env.REPLIT_SLUG 
+    ? `http://${process.env.REPLIT_SLUG}.${process.env.REPLIT_OWNER}.repl.co/auth/callback`
+    : 'http://localhost:5000/auth/callback';
+  
+  console.log('Configured Google OAuth callback URL:', callbackURL);
 
   passport.use(
     new GoogleStrategy(
@@ -105,7 +108,7 @@ export function setupAuth(app: Express) {
         clientID: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         callbackURL,
-        scope: ["email", "profile"],
+        proxy: true
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
