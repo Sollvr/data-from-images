@@ -59,7 +59,6 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Local Strategy with enhanced email verification check
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
@@ -94,7 +93,7 @@ export function setupAuth(app: Express) {
     })
   );
 
-  passport.serializeUser((user, done) => {
+  passport.serializeUser((user: any, done) => {
     done(null, user.id);
   });
 
@@ -112,60 +111,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // API endpoint to clear all users (for testing)
-  app.post("/api/clear-users", async (req, res) => {
-    try {
-      await db.delete(users);
-      res.json({ message: "All users deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting users:", error);
-      res.status(500).json({ message: "Failed to delete users" });
-    }
-  });
-
-  // Enhanced email verification route
-  app.get("/verify-email", async (req, res) => {
-    console.log("Processing email verification request...");
-    const { token } = req.query;
-
-    if (!token || typeof token !== "string") {
-      return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
-    }
-
-    try {
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.verification_token, token))
-        .limit(1);
-
-      if (!user) {
-        return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
-      }
-
-      if (user.verification_expires && new Date(user.verification_expires) < new Date()) {
-        return res.redirect("/auth?error=" + encodeURIComponent("Verification token has expired"));
-      }
-
-      // Update user verification status
-      await db
-        .update(users)
-        .set({
-          email_verified: true,
-          verification_token: null,
-          verification_expires: null,
-        })
-        .where(eq(users.id, user.id));
-
-      // Redirect to complete registration with email parameter
-      res.redirect(`/auth?verified=true&email=${encodeURIComponent(user.username)}`);
-    } catch (error) {
-      console.error("Error during email verification:", error);
-      res.redirect("/auth?error=" + encodeURIComponent("Failed to verify email"));
-    }
-  });
-
-  // Registration route with email-only initial step
+  // Registration route with email-only initial step and duplicate handling
   app.post("/register", async (req, res) => {
     console.log("Processing registration request...");
     const { username } = req.body;
@@ -177,6 +123,39 @@ export function setupAuth(app: Express) {
     }
 
     try {
+      // Check if user already exists
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, username.toLowerCase()))
+        .limit(1);
+
+      if (existingUser) {
+        if (!existingUser.email_verified) {
+          // If user exists but not verified, resend verification email
+          const verificationToken = await generateVerificationToken();
+          const expiresAt = new Date();
+          expiresAt.setHours(expiresAt.getHours() + 24);
+
+          await db
+            .update(users)
+            .set({
+              verification_token: verificationToken,
+              verification_expires: expiresAt,
+            })
+            .where(eq(users.id, existingUser.id));
+
+          await sendVerificationEmail(username, verificationToken);
+
+          return res.status(200).json({
+            message: "Verification email resent. Please check your inbox.",
+            user: { id: existingUser.id, username: existingUser.username },
+          });
+        }
+        return res.status(400).json({ message: "Email address already registered" });
+      }
+
+      // Create new user
       const verificationToken = await generateVerificationToken();
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24);
@@ -231,6 +210,8 @@ export function setupAuth(app: Express) {
         .update(users)
         .set({
           password: await crypto.hash(password),
+          verification_token: null,
+          verification_expires: null,
         })
         .where(eq(users.id, user.id));
 
@@ -238,6 +219,44 @@ export function setupAuth(app: Express) {
     } catch (error) {
       console.error("Error completing registration:", error);
       res.status(500).json({ message: "Failed to complete registration" });
+    }
+  });
+
+  // Email verification endpoint
+  app.get("/verify-email", async (req, res) => {
+    console.log("Processing email verification request...");
+    const { token } = req.query;
+
+    if (!token || typeof token !== "string") {
+      return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
+    }
+
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.verification_token, token))
+        .limit(1);
+
+      if (!user) {
+        return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
+      }
+
+      if (user.verification_expires && new Date(user.verification_expires) < new Date()) {
+        return res.redirect("/auth?error=" + encodeURIComponent("Verification token has expired"));
+      }
+
+      await db
+        .update(users)
+        .set({
+          email_verified: true,
+        })
+        .where(eq(users.id, user.id));
+
+      res.redirect(`/complete-registration?email=${encodeURIComponent(user.username)}`);
+    } catch (error) {
+      console.error("Error during email verification:", error);
+      res.redirect("/auth?error=" + encodeURIComponent("Failed to verify email"));
     }
   });
 
