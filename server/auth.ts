@@ -6,8 +6,8 @@ import session from "express-session";
 import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { users, insertUserSchema, type User as SelectUser } from "db/schema";
-import { db } from "db";
+import { users, insertUserSchema, type User } from "../db/schema";
+import { db } from "../db";
 import { eq } from "drizzle-orm";
 import { generateVerificationToken, sendVerificationEmail } from "./email";
 
@@ -32,8 +32,13 @@ const crypto = {
 
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface User extends User {}
   }
+}
+
+interface ExtendedVerifyOptions extends IVerifyOptions {
+  needsVerification?: boolean;
+  email?: string;
 }
 
 export function setupAuth(app: Express) {
@@ -61,11 +66,10 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Local Strategy
+  // Local Strategy with enhanced email verification check
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        console.log("Attempting local strategy authentication...");
         const [user] = await db
           .select()
           .from(users)
@@ -73,27 +77,22 @@ export function setupAuth(app: Express) {
           .limit(1);
 
         if (!user) {
-          console.log("User not found:", username);
           return done(null, false, { message: "Incorrect email or password." });
         }
 
         const isMatch = await crypto.compare(password, user.password);
         if (!isMatch) {
-          console.log("Password mismatch for user:", username);
           return done(null, false, { message: "Incorrect email or password." });
         }
 
-        // Check if email is verified for non-Google users
-        if (!user.metadata?.googleId && !user.email_verified) {
-          console.log("Unverified email for user:", username);
+        if (!user.email_verified) {
           return done(null, false, {
-            message: "Please verify your email address before logging in.",
+            message: "Please verify your email before logging in.",
             needsVerification: true,
-            email: username
-          });
+            email: username,
+          } as ExtendedVerifyOptions);
         }
 
-        console.log("Local authentication successful for user:", username);
         return done(null, user);
       } catch (err) {
         console.error("Error in local strategy:", err);
@@ -102,14 +101,12 @@ export function setupAuth(app: Express) {
     })
   );
 
-  passport.serializeUser((user, done) => {
-    console.log("Serializing user:", user.id);
+  passport.serializeUser((user: User, done) => {
     done(null, user.id);
   });
 
   passport.deserializeUser(async (id: number, done) => {
     try {
-      console.log("Deserializing user:", id);
       const [user] = await db
         .select()
         .from(users)
@@ -122,13 +119,12 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Email verification route with enhanced error handling
+  // Enhanced email verification route
   app.get("/verify-email", async (req, res) => {
     console.log("Processing email verification request...");
     const { token } = req.query;
 
     if (!token || typeof token !== "string") {
-      console.error("Invalid verification token format");
       return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
     }
 
@@ -140,12 +136,10 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (!user) {
-        console.error("No user found with verification token:", token);
         return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
       }
 
       if (user.verification_expires && new Date(user.verification_expires) < new Date()) {
-        console.error("Verification token expired for user:", user.username);
         return res.redirect("/auth?error=" + encodeURIComponent("Verification token has expired"));
       }
 
@@ -159,15 +153,23 @@ export function setupAuth(app: Express) {
         })
         .where(eq(users.id, user.id));
 
-      console.log("Email verified successfully for user:", user.username);
+      // Get the updated user record
+      const [verifiedUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, user.id))
+        .limit(1);
+
+      if (!verifiedUser) {
+        return res.redirect("/auth?error=" + encodeURIComponent("Verification failed"));
+      }
 
       // Log the user in automatically after verification
-      req.login(user, (err) => {
+      req.login(verifiedUser, (err) => {
         if (err) {
           console.error("Error logging in after verification:", err);
           return res.redirect("/auth?error=" + encodeURIComponent("Failed to complete verification"));
         }
-        console.log("User logged in after verification:", user.username);
         res.redirect("/app");
       });
     } catch (error) {
@@ -176,51 +178,49 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Enhanced login route with proper error handling
+  // Login route with enhanced error handling
   app.post("/login", (req, res, next) => {
     console.log("Processing login request...");
     const result = insertUserSchema.safeParse(req.body);
+    
     if (!result.success) {
-      console.log("Invalid login input:", result.error.flatten());
       return res
         .status(400)
         .json({ message: "Invalid input", errors: result.error.flatten() });
     }
 
-    passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions & { needsVerification?: boolean; email?: string }) => {
-      if (err) {
-        console.error("Login error:", err);
-        return next(err);
-      }
-      if (!user) {
-        console.log("Login failed:", info.message);
-        return res.status(400).json({
-          message: info.message,
-          needsVerification: info.needsVerification,
-          email: info.email
-        });
-      }
-      req.logIn(user, (err) => {
+    passport.authenticate(
+      "local",
+      (err: any, user: User | false, info: ExtendedVerifyOptions) => {
         if (err) {
-          console.error("Error logging in:", err);
           return next(err);
         }
-        console.log("Login successful:", user.username);
-        return res.json({
-          message: "Login successful",
-          user: { id: user.id, username: user.username },
+        if (!user) {
+          return res.status(400).json({
+            message: info.message,
+            needsVerification: info.needsVerification,
+            email: info.email,
+          });
+        }
+        req.logIn(user, (err) => {
+          if (err) {
+            return next(err);
+          }
+          return res.json({
+            message: "Login successful",
+            user: { id: user.id, username: user.username },
+          });
         });
-      });
-    })(req, res, next);
+      }
+    )(req, res, next);
   });
 
-  // Register route with enhanced validation
+  // Registration route with enhanced validation
   app.post("/register", async (req, res) => {
     console.log("Processing registration request...");
     const result = insertUserSchema.safeParse(req.body);
     
     if (!result.success) {
-      console.log("Invalid registration input:", result.error.flatten());
       return res
         .status(400)
         .json({ message: "Invalid input", errors: result.error.flatten() });
@@ -245,7 +245,6 @@ export function setupAuth(app: Express) {
         .returning();
 
       await sendVerificationEmail(username, verificationToken);
-      console.log("User registered successfully:", username);
 
       res.status(201).json({
         message: "Registration successful. Please check your email to verify your account.",
