@@ -61,23 +61,38 @@ function AuthContent() {
     console.log("Attempting authentication...");
     setIsLoading(true);
     try {
-      const result = await (isLogin
-        ? login.username(data.username, data.password)
-        : register(data.username, data.password));
+      if (isLogin) {
+        const response = await fetch("/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
 
-      if (result.ok) {
-        if (isLogin) {
-          console.log("Authentication successful, redirecting...");
-          setLocation("/app");
-        } else {
-          setVerificationSent(true);
+        const result = await response.json();
+        
+        if (!response.ok) {
+          if (result.needsVerification) {
+            // Show verification UI with resend option
+            setVerificationSent(true);
+            form.setValue("username", result.email);
+            return;
+          }
+          throw new Error(result.message);
         }
+
+        console.log("Authentication successful, redirecting...");
+        setLocation("/app");
       } else {
-        console.error("Authentication failed:", result.message);
-        setAuthError(result.message);
+        const result = await register(data.username, data.password);
+        if (result.ok) {
+          setVerificationSent(true);
+        } else {
+          throw new Error(result.message);
+        }
       }
     } catch (error: any) {
-      console.error("Unexpected error during authentication:", error);
+      console.error("Authentication failed:", error);
       setAuthError(error?.message || "An unexpected error occurred");
     } finally {
       setIsLoading(false);
