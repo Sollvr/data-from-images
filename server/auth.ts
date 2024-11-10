@@ -185,6 +185,7 @@ export function setupAuth(app: Express) {
 
   // Complete registration endpoint
   app.post("/complete-registration", async (req, res) => {
+    console.log("Processing complete registration request...");
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -203,19 +204,31 @@ export function setupAuth(app: Express) {
       }
 
       if (!user.email_verified) {
-        return res.status(400).json({ message: "Email not verified" });
+        return res.status(400).json({ message: "Please verify your email before setting a password" });
       }
 
+      const hashedPassword = await crypto.hash(password);
+      
       await db
         .update(users)
         .set({
-          password: await crypto.hash(password),
+          password: hashedPassword,
           verification_token: null,
           verification_expires: null,
         })
         .where(eq(users.id, user.id));
 
-      res.json({ message: "Registration completed successfully" });
+      // Log the user in automatically after registration
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Error logging in after registration:", err);
+          return res.status(500).json({ message: "Failed to log in after registration" });
+        }
+        res.json({ 
+          message: "Registration completed successfully",
+          user: { id: user.id, username: user.username }
+        });
+      });
     } catch (error) {
       console.error("Error completing registration:", error);
       res.status(500).json({ message: "Failed to complete registration" });
@@ -254,7 +267,7 @@ export function setupAuth(app: Express) {
         })
         .where(eq(users.id, user.id));
 
-      res.redirect(`${baseUrl}/complete-registration?email=${encodeURIComponent(user.username)}`);
+      res.redirect(`${baseUrl}/complete-registration?email=${encodeURIComponent(user.username)}&verified=true`);
     } catch (error) {
       console.error("Error during email verification:", error);
       res.redirect("/auth?error=" + encodeURIComponent("Failed to verify email"));
