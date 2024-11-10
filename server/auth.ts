@@ -29,7 +29,6 @@ const crypto = {
   },
 };
 
-// extend express user object with our schema
 declare global {
   namespace Express {
     interface User extends SelectUser {}
@@ -43,11 +42,6 @@ export function setupAuth(app: Express) {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
     console.error("Missing required Google OAuth credentials");
     throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set");
-  }
-
-  if (!process.env.REPLIT_SLUG || !process.env.REPLIT_OWNER) {
-    console.error("Missing required Replit environment variables");
-    console.log("Falling back to localhost for development");
   }
 
   const MemoryStore = createMemoryStore(session);
@@ -102,10 +96,7 @@ export function setupAuth(app: Express) {
   );
 
   // Google Strategy
-  const callbackURL = process.env.REPLIT_SLUG 
-    ? `https://${process.env.REPLIT_SLUG}.${process.env.REPLIT_OWNER}.repl.co/auth/google/callback`
-    : 'http://localhost:5000/auth/google/callback';
-  
+  const callbackURL = 'https://SnapExtract-App.numaanmkcloud.repl.co/auth/callback';
   console.log('Using Google OAuth callback URL:', callbackURL);
 
   passport.use(
@@ -191,7 +182,7 @@ export function setupAuth(app: Express) {
   });
 
   app.get(
-    "/auth/google/callback",
+    "/auth/callback",
     (req, res, next) => {
       console.log("Received Google callback...");
       passport.authenticate("google", {
