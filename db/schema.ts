@@ -30,10 +30,15 @@ export const tags = pgTable("tags", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
+// Enhanced validation for user registration
 export const insertUserSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters")
-    .email("Username must be a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  username: z.string()
+    .min(3, "Email must be at least 3 characters")
+    .email("Please enter a valid email address")
+    .transform(val => val.toLowerCase()),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one uppercase letter, one lowercase letter, and one number"),
 });
 
 export const selectUserSchema = createSelectSchema(users);

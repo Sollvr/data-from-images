@@ -69,18 +69,18 @@ export function setupAuth(app: Express) {
         const [user] = await db
           .select()
           .from(users)
-          .where(eq(users.username, username))
+          .where(eq(users.username, username.toLowerCase()))
           .limit(1);
 
         if (!user) {
           console.log("User not found:", username);
-          return done(null, false, { message: "Incorrect username or password." });
+          return done(null, false, { message: "Incorrect email or password." });
         }
 
         const isMatch = await crypto.compare(password, user.password);
         if (!isMatch) {
           console.log("Password mismatch for user:", username);
-          return done(null, false, { message: "Incorrect username or password." });
+          return done(null, false, { message: "Incorrect email or password." });
         }
 
         // Check if email is verified for non-Google users
@@ -122,11 +122,13 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Email verification route
-  app.get("/auth/verify-email", async (req, res) => {
+  // Email verification route with enhanced error handling
+  app.get("/verify-email", async (req, res) => {
+    console.log("Processing email verification request...");
     const { token } = req.query;
 
     if (!token || typeof token !== "string") {
+      console.error("Invalid verification token format");
       return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
     }
 
@@ -138,13 +140,16 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (!user) {
+        console.error("No user found with verification token:", token);
         return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
       }
 
       if (user.verification_expires && new Date(user.verification_expires) < new Date()) {
+        console.error("Verification token expired for user:", user.username);
         return res.redirect("/auth?error=" + encodeURIComponent("Verification token has expired"));
       }
 
+      // Update user verification status
       await db
         .update(users)
         .set({
@@ -154,65 +159,24 @@ export function setupAuth(app: Express) {
         })
         .where(eq(users.id, user.id));
 
+      console.log("Email verified successfully for user:", user.username);
+
       // Log the user in automatically after verification
       req.login(user, (err) => {
         if (err) {
           console.error("Error logging in after verification:", err);
           return res.redirect("/auth?error=" + encodeURIComponent("Failed to complete verification"));
         }
-        res.redirect("/auth?verified=true");
+        console.log("User logged in after verification:", user.username);
+        res.redirect("/app");
       });
     } catch (error) {
-      console.error("Error verifying email:", error);
+      console.error("Error during email verification:", error);
       res.redirect("/auth?error=" + encodeURIComponent("Failed to verify email"));
     }
   });
 
-  // Resend verification email route
-  app.post("/resend-verification", async (req, res) => {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
-
-    try {
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.username, email))
-        .limit(1);
-
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      if (user.email_verified) {
-        return res.status(400).json({ message: "Email is already verified" });
-      }
-
-      const verificationToken = await generateVerificationToken();
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-
-      await db
-        .update(users)
-        .set({
-          verification_token: verificationToken,
-          verification_expires: expiresAt,
-        })
-        .where(eq(users.id, user.id));
-
-      await sendVerificationEmail(email, verificationToken);
-
-      res.json({ message: "Verification email sent" });
-    } catch (error) {
-      console.error("Error resending verification email:", error);
-      res.status(500).json({ message: "Failed to resend verification email" });
-    }
-  });
-
-  // Login route with enhanced error handling
+  // Enhanced login route with proper error handling
   app.post("/login", (req, res, next) => {
     console.log("Processing login request...");
     const result = insertUserSchema.safeParse(req.body);
@@ -248,6 +212,49 @@ export function setupAuth(app: Express) {
         });
       });
     })(req, res, next);
+  });
+
+  // Register route with enhanced validation
+  app.post("/register", async (req, res) => {
+    console.log("Processing registration request...");
+    const result = insertUserSchema.safeParse(req.body);
+    
+    if (!result.success) {
+      console.log("Invalid registration input:", result.error.flatten());
+      return res
+        .status(400)
+        .json({ message: "Invalid input", errors: result.error.flatten() });
+    }
+
+    try {
+      const { username, password } = result.data;
+      const hashedPassword = await crypto.hash(password);
+      const verificationToken = await generateVerificationToken();
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24);
+
+      const [user] = await db
+        .insert(users)
+        .values({
+          username: username.toLowerCase(),
+          password: hashedPassword,
+          verification_token: verificationToken,
+          verification_expires: expiresAt,
+          email_verified: false,
+        })
+        .returning();
+
+      await sendVerificationEmail(username, verificationToken);
+      console.log("User registered successfully:", username);
+
+      res.status(201).json({
+        message: "Registration successful. Please check your email to verify your account.",
+        user: { id: user.id, username: user.username },
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Failed to register user" });
+    }
   });
 
   console.log("Authentication setup complete");
