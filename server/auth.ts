@@ -1,12 +1,11 @@
 import passport from "passport";
 import { IVerifyOptions, Strategy as LocalStrategy } from "passport-local";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { type Express } from "express";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { users, insertUserSchema, type User } from "../db/schema";
+import { users, insertUserSchema } from "../db/schema";
 import { db } from "../db";
 import { eq } from "drizzle-orm";
 import { generateVerificationToken, sendVerificationEmail } from "./email";
@@ -29,12 +28,6 @@ const crypto = {
     return timingSafeEqual(hashedPasswordBuf, suppliedPasswordBuf);
   },
 };
-
-declare global {
-  namespace Express {
-    interface User extends User {}
-  }
-}
 
 interface ExtendedVerifyOptions extends IVerifyOptions {
   needsVerification?: boolean;
@@ -101,7 +94,7 @@ export function setupAuth(app: Express) {
     })
   );
 
-  passport.serializeUser((user: User, done) => {
+  passport.serializeUser((user, done) => {
     done(null, user.id);
   });
 
@@ -116,6 +109,17 @@ export function setupAuth(app: Express) {
     } catch (err) {
       console.error("Error deserializing user:", err);
       done(err);
+    }
+  });
+
+  // API endpoint to clear all users (for testing)
+  app.post("/api/clear-users", async (req, res) => {
+    try {
+      await db.delete(users);
+      res.json({ message: "All users deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting users:", error);
+      res.status(500).json({ message: "Failed to delete users" });
     }
   });
 
@@ -153,82 +157,26 @@ export function setupAuth(app: Express) {
         })
         .where(eq(users.id, user.id));
 
-      // Get the updated user record
-      const [verifiedUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, user.id))
-        .limit(1);
-
-      if (!verifiedUser) {
-        return res.redirect("/auth?error=" + encodeURIComponent("Verification failed"));
-      }
-
-      // Log the user in automatically after verification
-      req.login(verifiedUser, (err) => {
-        if (err) {
-          console.error("Error logging in after verification:", err);
-          return res.redirect("/auth?error=" + encodeURIComponent("Failed to complete verification"));
-        }
-        res.redirect("/app");
-      });
+      // Redirect to complete registration with email parameter
+      res.redirect(`/auth?verified=true&email=${encodeURIComponent(user.username)}`);
     } catch (error) {
       console.error("Error during email verification:", error);
       res.redirect("/auth?error=" + encodeURIComponent("Failed to verify email"));
     }
   });
 
-  // Login route with enhanced error handling
-  app.post("/login", (req, res, next) => {
-    console.log("Processing login request...");
-    const result = insertUserSchema.safeParse(req.body);
-    
-    if (!result.success) {
-      return res
-        .status(400)
-        .json({ message: "Invalid input", errors: result.error.flatten() });
-    }
-
-    passport.authenticate(
-      "local",
-      (err: any, user: User | false, info: ExtendedVerifyOptions) => {
-        if (err) {
-          return next(err);
-        }
-        if (!user) {
-          return res.status(400).json({
-            message: info.message,
-            needsVerification: info.needsVerification,
-            email: info.email,
-          });
-        }
-        req.logIn(user, (err) => {
-          if (err) {
-            return next(err);
-          }
-          return res.json({
-            message: "Login successful",
-            user: { id: user.id, username: user.username },
-          });
-        });
-      }
-    )(req, res, next);
-  });
-
-  // Registration route with enhanced validation
+  // Registration route with email-only initial step
   app.post("/register", async (req, res) => {
     console.log("Processing registration request...");
-    const result = insertUserSchema.safeParse(req.body);
+    const { username } = req.body;
     
-    if (!result.success) {
+    if (!username || typeof username !== "string" || !username.includes("@")) {
       return res
         .status(400)
-        .json({ message: "Invalid input", errors: result.error.flatten() });
+        .json({ message: "Invalid email address" });
     }
 
     try {
-      const { username, password } = result.data;
-      const hashedPassword = await crypto.hash(password);
       const verificationToken = await generateVerificationToken();
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 24);
@@ -237,7 +185,7 @@ export function setupAuth(app: Express) {
         .insert(users)
         .values({
           username: username.toLowerCase(),
-          password: hashedPassword,
+          password: await crypto.hash(verificationToken), // Temporary password
           verification_token: verificationToken,
           verification_expires: expiresAt,
           email_verified: false,
@@ -247,12 +195,89 @@ export function setupAuth(app: Express) {
       await sendVerificationEmail(username, verificationToken);
 
       res.status(201).json({
-        message: "Registration successful. Please check your email to verify your account.",
+        message: "Registration initiated. Please check your email to verify your account.",
         user: { id: user.id, username: user.username },
       });
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ message: "Failed to register user" });
+    }
+  });
+
+  // Complete registration endpoint
+  app.post("/complete-registration", async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, email.toLowerCase()))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!user.email_verified) {
+        return res.status(400).json({ message: "Email not verified" });
+      }
+
+      await db
+        .update(users)
+        .set({
+          password: await crypto.hash(password),
+        })
+        .where(eq(users.id, user.id));
+
+      res.json({ message: "Registration completed successfully" });
+    } catch (error) {
+      console.error("Error completing registration:", error);
+      res.status(500).json({ message: "Failed to complete registration" });
+    }
+  });
+
+  // Resend verification endpoint
+  app.post("/resend-verification", async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, email.toLowerCase()))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const verificationToken = await generateVerificationToken();
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24);
+
+      await db
+        .update(users)
+        .set({
+          verification_token: verificationToken,
+          verification_expires: expiresAt,
+        })
+        .where(eq(users.id, user.id));
+
+      await sendVerificationEmail(email, verificationToken);
+
+      res.json({ message: "Verification email sent successfully" });
+    } catch (error) {
+      console.error("Error resending verification:", error);
+      res.status(500).json({ message: "Failed to resend verification email" });
     }
   });
 

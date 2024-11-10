@@ -24,7 +24,12 @@ export async function sendVerificationEmail(email: string, token: string) {
     subject: "Verify your email address",
     html: `
       <h1>Welcome to SnapExtract!</h1>
-      <p>Please click the button below to verify your email address:</p>
+      <p>Thank you for starting your registration. Please follow these steps to complete your account setup:</p>
+      <ol>
+        <li>Click the verification button below to verify your email address</li>
+        <li>After verification, you'll be redirected to set up your password</li>
+        <li>Once your password is set, you can log in to start using SnapExtract</li>
+      </ol>
       <a href="${verificationUrl}" style="
         display: inline-block;
         padding: 12px 24px;
