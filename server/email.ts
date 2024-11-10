@@ -16,7 +16,7 @@ export async function generateVerificationToken(): Promise<string> {
 }
 
 export async function sendVerificationEmail(email: string, token: string) {
-  const verificationUrl = `${process.env.REPLIT_URL || 'http://localhost:5000'}/verify-email?token=${token}`;
+  const verificationUrl = `https://SnapExtract-App.numaanmkcloud.repl.co/verify-email?token=${token}`;
   
   const mailOptions = {
     from: process.env.EMAIL_USER,

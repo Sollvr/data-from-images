@@ -226,7 +226,7 @@ export function setupAuth(app: Express) {
   app.get("/verify-email", async (req, res) => {
     console.log("Processing email verification request...");
     const { token } = req.query;
-    const baseUrl = process.env.REPLIT_URL || 'http://localhost:5000';
+    const baseUrl = 'https://SnapExtract-App.numaanmkcloud.repl.co';
 
     if (!token || typeof token !== "string") {
       return res.redirect("/auth?error=" + encodeURIComponent("Invalid verification token"));
