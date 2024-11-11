@@ -23,8 +23,9 @@ export default function VerifyEmail() {
           return;
         }
 
-        // Use VITE_API_URL for the API endpoint
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/verify-email?token=${token}`);
+        // Use VITE_API_URL with window.location.origin as fallback
+        const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+        const response = await fetch(`${apiUrl}/verify-email?token=${token}`);
         const data = await response.json();
 
         if (response.ok) {

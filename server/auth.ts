@@ -11,6 +11,11 @@ import { eq, and } from "drizzle-orm";
 import { generateVerificationToken, sendVerificationEmail } from "./email";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 
+// Check for VITE_API_URL environment variable
+if (!process.env.VITE_API_URL) {
+  console.warn('VITE_API_URL not set, using default localhost:5000');
+}
+
 const scryptAsync = promisify(scrypt);
 const crypto = {
   hash: async (password: string) => {
