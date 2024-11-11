@@ -8,13 +8,12 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { User, Lock, Mail, Loader2, AlertCircle } from "lucide-react";
+import { User, Lock, Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const authSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -35,7 +34,6 @@ function AuthContent() {
     resolver: zodResolver(authSchema),
     defaultValues: {
       username: "",
-      email: "",
       password: "",
     },
   });
@@ -47,19 +45,11 @@ function AuthContent() {
     try {
       const result = await (isLogin
         ? login.username(data.username, data.password)
-        : register(data.username, data.password, data.email));
+        : register(data.username, data.password));
 
       if (result.ok) {
         console.log("Authentication successful, redirecting...");
-        if (!isLogin) {
-          toast({
-            title: "Registration Successful",
-            description: "Please check your email to verify your account.",
-          });
-          setLocation("/auth");
-        } else {
-          setLocation("/app");
-        }
+        setLocation("/app");
       } else {
         console.error("Authentication failed:", result.message);
         setAuthError(result.message);
@@ -103,26 +93,6 @@ function AuthContent() {
               </p>
             )}
           </div>
-
-          {!isLogin && (
-            <div className="space-y-2">
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  {...form.register("email")}
-                  className="pl-9"
-                  disabled={isLoading}
-                />
-              </div>
-              {form.formState.errors.email && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.email.message}
-                </p>
-              )}
-            </div>
-          )}
 
           <div className="space-y-2">
             <div className="relative">

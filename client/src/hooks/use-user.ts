@@ -42,17 +42,17 @@ export function useUser() {
       await mutate(null);
       return { ok: true };
     },
-    register: async (username: string, password: string, email: string) => {
+    register: async (username: string, password: string) => {
       const res = await fetch("/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, email }),
+        body: JSON.stringify({ username, password }),
         credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) return { ok: false, message: data.message };
       await mutate();
-      return { ok: true, message: data.message };
+      return { ok: true };
     },
   };
 }

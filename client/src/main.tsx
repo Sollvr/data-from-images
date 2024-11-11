@@ -8,7 +8,6 @@ import { Toaster } from "@/components/ui/toaster";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import Landing from "./pages/Landing";
-import VerifyEmail from "./pages/VerifyEmail";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
 
@@ -48,9 +47,6 @@ function AppRoutes() {
         </Route>
         <Route path="/auth">
           <Auth />
-        </Route>
-        <Route path="/verify-email">
-          <VerifyEmail />
         </Route>
         <Route>
           <div className="min-h-screen flex items-center justify-center p-4">
