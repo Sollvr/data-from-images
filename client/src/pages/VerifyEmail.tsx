@@ -3,11 +3,13 @@ import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function VerifyEmail() {
   const [, setLocation] = useLocation();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
+  const { toast } = useToast();
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -21,23 +23,44 @@ export default function VerifyEmail() {
           return;
         }
 
-        const response = await fetch(`/verify-email?token=${token}`);
+        // Use VITE_API_URL for the API endpoint
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/verify-email?token=${token}`);
         const data = await response.json();
 
         if (response.ok) {
           setStatus("success");
+          toast({
+            title: "Success",
+            description: "Email verified successfully!",
+          });
         } else {
           setStatus("error");
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: data.message || "Failed to verify email",
+          });
         }
         setMessage(data.message);
       } catch (error) {
+        console.error("Email verification error:", error);
         setStatus("error");
         setMessage("An error occurred during verification");
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to connect to verification service",
+        });
       }
     };
 
     verifyEmail();
-  }, []);
+  }, [toast]);
+
+  const handleRetry = () => {
+    setStatus("loading");
+    window.location.reload();
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -67,9 +90,14 @@ export default function VerifyEmail() {
               <XCircle className="h-12 w-12 mx-auto text-destructive" />
               <h2 className="text-2xl font-semibold text-destructive">Verification Failed</h2>
               <p className="text-muted-foreground">{message}</p>
-              <Button onClick={() => setLocation("/auth")} variant="outline" className="mt-4">
-                Return to Login
-              </Button>
+              <div className="flex flex-col gap-2 mt-4">
+                <Button onClick={handleRetry} variant="secondary">
+                  Retry Verification
+                </Button>
+                <Button onClick={() => setLocation("/auth")} variant="outline">
+                  Return to Login
+                </Button>
+              </div>
             </>
           )}
         </div>

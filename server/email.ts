@@ -19,6 +19,7 @@ export async function generateVerificationToken(): Promise<string> {
 }
 
 export async function sendVerificationEmail(email: string, token: string) {
+  // Use VITE_API_URL from environment for the verification URL
   const verificationUrl = `${process.env.VITE_API_URL}/verify-email?token=${token}`;
 
   const mailOptions = {
