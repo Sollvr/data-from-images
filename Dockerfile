@@ -1,35 +1,36 @@
-# Build stage
-FROM node:20-slim AS builder
+# Build stage for client
+FROM node:20-slim AS client-builder
 
-# Set working directory
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-COPY client/package*.json ./client/
-COPY server/package*.json ./server/
-
-# Install dependencies
+WORKDIR /app/client
+COPY client/package*.json ./
 RUN npm install
-RUN cd client && npm install
-RUN cd server && npm install
 
-# Copy source code
-COPY . .
+COPY client/ .
+RUN npm run build
 
-# Build client
-RUN cd client && npm run build
+# Build stage for server
+FROM node:20-slim AS server-builder
+
+WORKDIR /app/server
+COPY server/package*.json ./
+RUN npm install
+
+COPY server/ .
 
 # Production stage
 FROM node:20-slim AS runner
 
 WORKDIR /app
 
-# Copy built assets and server files
-COPY --from=builder /app/client/dist ./client/dist
-COPY --from=builder /app/server ./server
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
+# Copy built client files
+COPY --from=client-builder /app/client/dist ./client/dist
+
+# Copy server files and dependencies
+COPY --from=server-builder /app/server ./server
+COPY --from=server-builder /app/server/node_modules ./server/node_modules
+
+# Copy root package.json
+COPY package*.json ./
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -38,5 +39,5 @@ ENV PORT=5000
 # Expose port
 EXPOSE 5000
 
-# Start the server
-CMD ["npm", "start"] 
+# Start command
+CMD ["node", "server/index.js"] 
