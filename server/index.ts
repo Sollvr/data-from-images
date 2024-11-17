@@ -29,13 +29,6 @@ app.use(express.urlencoded({ extended: false }));
 
   const PORT = 5000;
   server.listen(PORT, "0.0.0.0", () => {
-    const formattedTime = new Date().toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-
-    console.log(`${formattedTime} [express] serving on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
   });
 })();
