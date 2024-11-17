@@ -22,11 +22,12 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(process.cwd(), "client/dist");
+  const distPath = path.resolve(process.cwd(), "./client/dist");
   console.log('Static files path:', distPath);
 
   if (!fs.existsSync(distPath)) {
     console.error(`Build directory not found: ${distPath}`);
+    console.log('Directory contents:', fs.readdirSync(process.cwd()));
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`
     );
@@ -34,7 +35,7 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
-  app.get('*', (req, res) => {
+  app.get('/*', (req, res) => {
     console.log('Serving index.html for path:', req.path);
     res.sendFile(path.join(distPath, 'index.html'));
   });
