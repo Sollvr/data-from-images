@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { OpenAI } from "openai";
 
 if (!process.env.OPENAI_API_KEY) {
   console.error("Warning: OPENAI_API_KEY is not set");
