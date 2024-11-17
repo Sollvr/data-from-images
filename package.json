@@ -3,5 +3,8 @@
   "scripts": {
     "build": "cd client && npm install && npm run build",
     "start": "cd server && npm install && npm start"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
   }
 }
