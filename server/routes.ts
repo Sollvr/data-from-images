@@ -10,7 +10,6 @@ const upload = multer({
 });
 
 export function registerRoutes(app: Express) {
-  // Modify extract endpoint to not require authentication
   app.post("/api/extract", upload.array("images", 10), async (req, res) => {
     if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
       return res.status(400).json({ message: "No image files provided" });
@@ -18,18 +17,7 @@ export function registerRoutes(app: Express) {
 
     try {
       const requirements = req.body.requirements;
-      const results: {
-        text: string;
-        patterns: {
-          dates?: string[];
-          amounts?: string[];
-          emails?: string[];
-          phoneNumbers?: string[];
-          addresses?: string[];
-          identifiers?: string[];
-        };
-        filename: string;
-      }[] = [];
+      const results = [];
       
       for (const file of req.files) {
         const base64Image = file.buffer.toString("base64");
