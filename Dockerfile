@@ -34,9 +34,15 @@ RUN npm install
 
 COPY server/ .
 
+COPY server/tsconfig.json ./
+
+
+
+# Install TypeScript and build
+
 RUN npm install -g typescript
 
-RUN tsc
+RUN npx tsc
 
 
 
@@ -83,4 +89,10 @@ EXPOSE 5000
 # Start command
 
 CMD ["node", "server/index.js"] 
+
+
+
+
+
+
 
