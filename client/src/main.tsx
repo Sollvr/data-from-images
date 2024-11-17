@@ -6,10 +6,13 @@ import { SWRConfig } from "swr";
 import { fetcher } from "./lib/fetcher";
 import { Toaster } from "@/components/ui/toaster";
 import Home from "./pages/Home";
-import Auth from "./pages/Auth";
 import Landing from "./pages/Landing";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
+import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 console.log("Application starting...");
 
@@ -42,11 +45,16 @@ function AppRoutes() {
         <Route path="/">
           <Landing />
         </Route>
-        <Route path="/app">
-          <Home />
-        </Route>
         <Route path="/auth">
           <Auth />
+        </Route>
+        <Route path="/auth/callback">
+          <AuthCallback />
+        </Route>
+        <Route path="/app">
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
         </Route>
         <Route>
           <div className="min-h-screen flex items-center justify-center p-4">
@@ -77,19 +85,21 @@ createRoot(document.getElementById("root")!).render(
         </div>
       }
     >
-      <SWRConfig
-        value={{
-          fetcher,
-          onError: (error) => {
-            console.error("SWR Global Error:", error);
-          },
-        }}
-      >
-        <Suspense fallback={<LoadingFallback />}>
-          <AppRoutes />
-        </Suspense>
-        <Toaster />
-      </SWRConfig>
+      <AuthProvider>
+        <SWRConfig
+          value={{
+            fetcher,
+            onError: (error) => {
+              console.error("SWR Global Error:", error);
+            },
+          }}
+        >
+          <Suspense fallback={<LoadingFallback />}>
+            <AppRoutes />
+          </Suspense>
+          <Toaster />
+        </SWRConfig>
+      </AuthProvider>
     </ErrorBoundary>
   </StrictMode>
 );

@@ -1,5 +1,4 @@
 import { useEffect, Suspense } from "react";
-import { useUser } from "@/hooks/use-user";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,7 +12,6 @@ import {
   Clock,
   ChevronRight,
   ArrowRight,
-  CheckCircle,
   Zap,
   Shield,
   Users,
@@ -72,7 +70,6 @@ function FeatureCard({
 }
 
 function LandingContent() {
-  const { user } = useUser();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -170,7 +167,7 @@ function LandingContent() {
                 <Button 
                   size="lg" 
                   className="cta-button"
-                  onClick={() => setLocation(user ? "/app" : "/auth")}
+                  onClick={() => setLocation("/auth")}
                 >
                   Get Started
                   <ChevronRight className="ml-2 h-4 w-4" />
@@ -179,7 +176,7 @@ function LandingContent() {
                   size="lg" 
                   variant="outline" 
                   className="cta-button"
-                  onClick={() => setLocation("/auth")}
+                  onClick={() => setLocation("/app")}
                 >
                   Try Demo
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -269,7 +266,7 @@ function LandingContent() {
               <Button 
                 size="lg" 
                 className="cta-button"
-                onClick={() => setLocation(user ? "/app" : "/auth")}
+                onClick={() => setLocation("/auth")}
               >
                 Start Extracting Now
                 <ChevronRight className="ml-2 h-4 w-4" />

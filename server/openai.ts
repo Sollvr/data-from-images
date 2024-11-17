@@ -1,6 +1,12 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+if (!process.env.OPENAI_API_KEY) {
+  console.error("Warning: OPENAI_API_KEY is not set");
+}
+
+const openai = new OpenAI({ 
+  apiKey: process.env.OPENAI_API_KEY || 'dummy-key'  // Prevents crash during development
+});
 
 interface ExtractedData {
   text: string;
@@ -15,6 +21,21 @@ interface ExtractedData {
 }
 
 export async function analyzeImage(base64Image: string, requirements?: string): Promise<ExtractedData> {
+  if (!process.env.OPENAI_API_KEY) {
+    // Return mock data if no API key is set
+    return {
+      text: "API key not configured. This is mock data.",
+      patterns: {
+        dates: ["2024-03-21"],
+        amounts: ["$100.00"],
+        emails: ["example@test.com"],
+        phoneNumbers: ["123-456-7890"],
+        addresses: ["123 Test St"],
+        identifiers: ["ID123"],
+      }
+    };
+  }
+
   try {
     const defaultPrompt = `Analyze this image and extract the following:
 1. All visible text in a clean, readable format

@@ -1,12 +1,19 @@
 import { useState } from "react";
-import { useUser } from "@/hooks/use-user";
 import { ImageUpload } from "@/components/ImageUpload";
 import { ExtractedText } from "@/components/ExtractedText";
 import { TagManager } from "@/components/TagManager";
 import { Button } from "@/components/ui/button";
-import { LogOut, Download, Home as HomeIcon } from "lucide-react";
+import { Home as HomeIcon, LogOut, Download, FileText, FileJson, Table } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ReviewDialog } from "@/components/ReviewDialog";
 
 interface Patterns {
   dates?: string[];
@@ -25,14 +32,15 @@ interface ExtractionResult {
 }
 
 export default function Home() {
-  const { user, logout } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { signOut } = useAuth();
   const [results, setResults] = useState<ExtractionResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [showReview, setShowReview] = useState(false);
 
   const handleImageUpload = async (files: File[], requirements?: string) => {
     setIsLoading(true);
@@ -72,6 +80,8 @@ export default function Home() {
         }
         setTags(Array.from(newTags));
       }
+
+      setShowReview(true);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -92,42 +102,96 @@ export default function Home() {
     setTags(tags.filter((t) => t !== tag));
   };
 
-  const handleExport = async () => {
+  const handleLogout = async () => {
     try {
-      const response = await fetch("/api/export", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) throw new Error("Failed to export data");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "extractions.csv";
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
+      await signOut();
+      setLocation('/');
       toast({
-        title: "Success",
-        description: "Data exported successfully",
+        title: "Logged out",
+        description: "You have been successfully logged out.",
       });
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to export data",
+        description: "Failed to log out",
       });
     }
   };
 
-  if (!user) {
-    setLocation("/auth");
-    return null;
-  }
+  const handleExport = (format: 'csv' | 'txt' | 'json') => {
+    if (!results.length) {
+      toast({
+        variant: "destructive",
+        title: "No data to export",
+        description: "Please extract text from images first.",
+      });
+      return;
+    }
+
+    try {
+      let content: string;
+      let filename: string;
+      let type: string;
+
+      switch (format) {
+        case 'csv':
+          content = results.map(result => {
+            return `"${result.filename}","${result.text.replace(/"/g, '""')}","${Object.entries(result.patterns)
+              .map(([key, values]) => `${key}: ${values?.join(', ')}`)
+              .join('","')}"`;
+          }).join('\n');
+          content = `Filename,Text,${Object.keys(results[0].patterns).join(',')}\n${content}`;
+          filename = 'extractions.csv';
+          type = 'text/csv';
+          break;
+
+        case 'txt':
+          content = results.map(result => {
+            return `File: ${result.filename}\n` +
+              `Text: ${result.text}\n` +
+              `Patterns:\n${Object.entries(result.patterns)
+                .map(([key, values]) => `  ${key}: ${values?.join(', ')}`)
+                .join('\n')}\n` +
+              '-'.repeat(50);
+          }).join('\n\n');
+          filename = 'extractions.txt';
+          type = 'text/plain';
+          break;
+
+        case 'json':
+          content = JSON.stringify(results, null, 2);
+          filename = 'extractions.json';
+          type = 'application/json';
+          break;
+
+        default:
+          throw new Error('Invalid format');
+      }
+
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export successful",
+        description: `Data exported as ${format.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        variant: "destructive",
+        title: "Export failed",
+        description: "Failed to export data. Please try again.",
+      });
+    }
+  };
 
   const currentResult = results[selectedIndex];
 
@@ -137,15 +201,33 @@ export default function Home() {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Extract Text</h1>
           <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => handleExport('csv')}>
+                  <Table className="h-4 w-4 mr-2" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('txt')}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export as TXT
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('json')}>
+                  <FileJson className="h-4 w-4 mr-2" />
+                  Export as JSON
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" onClick={() => setLocation("/")}>
               <HomeIcon className="h-4 w-4 mr-2" />
               Home
             </Button>
-            <Button variant="outline" onClick={handleExport}>
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-            <Button variant="outline" onClick={() => logout()}>
+            <Button variant="outline" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
@@ -186,6 +268,11 @@ export default function Home() {
           />
         </div>
       </div>
+
+      <ReviewDialog 
+        open={showReview} 
+        onOpenChange={setShowReview}
+      />
     </div>
   );
 }
