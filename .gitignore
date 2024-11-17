@@ -4,17 +4,17 @@
 .env.development
 .env.production
 .env.*
+!.env.example
 
 # Dependencies
 node_modules/
 
-# Build outputs
+# Build
 dist/
 build/
 
 # Logs
 *.log
-npm-debug.log*
 
 # Editor directories
 .idea/
