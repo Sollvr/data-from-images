@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic } from "./vite";
+import { registerRoutes } from "./routes.js";
+import { setupVite, serveStatic } from "./vite.js";
 import { createServer } from "http";
 
 const app = express();

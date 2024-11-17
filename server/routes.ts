@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import multer from "multer";
-import { analyzeImage } from "./openai";
+import { analyzeImage } from "./openai.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
